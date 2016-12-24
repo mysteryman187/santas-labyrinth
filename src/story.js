@@ -172,7 +172,7 @@ class Story {
     showScrollStory() {
         const { game } = this;
         if (!this.shownStory) {
-            const storyText = 'Oh no! \n\n Santa has fallen out of his sleigh! \n\n He\'s stuck in the deep labyrinth of Newfoundland. \n\n Please help to save Christmas by finding all the Gifts and escaping from the foggy depths of Newfoundland!';
+            const storyText = 'Oh no! \n Santa has fallen out of his sleigh! \n He\'s stuck in the deep labyrinth of Newfoundland and Grumpy old Frosty is on the loose!. \n Please help to save Christmas by finding all the Gifts and escaping from the foggy depths of Newfoundland!';
             this.shownStory = true;
             var img = game.cache.getImage('scroll');
             const scroll = game.add.sprite(game.world.centerX - (img.width / 2), game.world.centerY - (img.height / 2), 'scroll');

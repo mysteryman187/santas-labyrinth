@@ -25,6 +25,11 @@ window.WebFontConfig = {
   }
 };
 
+
+let savedGame = localStorage.savedGame;
+if (savedGame) {
+  savedGame = JSON.parse(savedGame);
+}
 //var fogHoleSize = 0.5; // easy mode....level 1
 var fogHoleSize = 0.3; // normal mode...level 2
 // 0.2 is a good hard mode .. so level 3
@@ -52,27 +57,43 @@ const wrapMap = (map, justBottomRight) => {
 };
 
 var levels = 3;
-const nextLevel = () => {
-  const map = random(15, 15);
-  finishLevelMetric(levels);
-  levels++;
-  game.state.add('maze-level-' + levels, new maze(game, wrapMap(map, true), nextLevel, 0.17));
+const loadLevel = map => {
+  game.state.add('maze-level-' + levels, new maze(game, wrapMap(map, true), nextLevel, 0.17, levels));
   game.state.start('maze-level-' + levels);
 };
 
+const nextLevel = () => {
+  finishLevelMetric(levels);
+  const map = random(15, 15);
+  levels++;
+  localStorage.savedGame = JSON.stringify({ level: levels, map });
+  loadLevel(map);
+};
+
+const loadGame = () => {
+  if (savedGame.named) {
+    game.state.start(savedGame.named);
+  } else {
+    levels = savedGame.level;
+    loadLevel(savedGame.map);
+  }
+};
+
 game.state.add('maze-level-1', new maze(game, wrapMap(level1), () => {
+  localStorage.savedGame = JSON.stringify({ named: 'maze-level-2' });
   finishLevelMetric(1);
   game.state.start('maze-level-2');
-}, 0.45));
+}, 0.45, 1));
 
 game.state.add('maze-level-2', new maze(game, wrapMap(level2), () => {
+  localStorage.savedGame = JSON.stringify({ named: 'maze-level-3' });
   finishLevelMetric(2);
   game.state.start('maze-level-3')
-}, 0.4));
+}, 0.4, 2));
 
-game.state.add('maze-level-3', new maze(game, wrapMap(level3), nextLevel, 0.17));
+game.state.add('maze-level-3', new maze(game, wrapMap(level3), nextLevel, 0.17, 3));
 game.state.add('loading', new Loading(game));
 game.state.add('story', new Story(game));
-game.state.add('splash', new Splash(game));
+game.state.add('splash', new Splash(game, savedGame, loadGame));
 game.state.start('loading');
 metric('start');

@@ -1,15 +1,18 @@
 import { preventSleep } from './utils';
 
 class Splash {
-    constructor(game) {
+    constructor(game, savedGame, loadGame) {
         this.game = game;
+        this.savedGame = savedGame;
+        this.loadGame = loadGame;
     }
 
     preload() {
         const { game } = this;
         game.load.spritesheet('santa', 'img/santa_256.png', 64, 64);
-        game.load.image('gift', 'img/Christmas-gift.gif', 400, 302);
-        game.load.image('block-ice-plain', 'img/ice-block-1.png', 88, 55);
+        game.load.image('gift', 'img/gift.png', 40, 30);
+        game.load.image('block-ice-plain', 'img/ice-block-45.png', 45, 45);
+        game.load.image('block-ice-small', 'img/ice-block-small.png', 32, 32);
         game.load.image('tree', 'img/tree.png', 1988, 1870);
         game.load.atlas('wintery', 'img/sprites_raw_transparent.png', 'config/sprite-atlas.json', Phaser.Loader.TEXTURE_ATLAS_JSON_HASH);
         game.load.atlas('footprints', 'img/footprints.png', 'config/sprite-atlas-footprints.json', Phaser.Loader.TEXTURE_ATLAS_JSON_HASH);
@@ -21,13 +24,19 @@ class Splash {
         game.load.image('nw', 'img/controls/NW.png');
         game.load.image('se', 'img/controls/SE.png');
         game.load.image('sw', 'img/controls/SW.png');
+        game.load.image('crater', 'img/crater_64.png', 128, 69);
         game.load.image('scroll', 'img/paper-scroll.png');
         game.load.spritesheet('deer', 'img/deer.png', 344, 307);
+
+        game.load.spritesheet('snowman', 'img/snowman-6.png', 360, 315);
         game.load.image('splash', 'img/splash.png', 2880, 1080);
         game.load.spritesheet('glitter', 'img/glitter.png', 1, 1);
         game.load.audio('carol', ['audio/bells_carol.mp3', 'audio/bells_carol.ogg']);
         game.load.audio('watermelon', ['audio/watermelon-smash.mp3', 'audio/watermelon-smash.ogg']);
+        game.load.audio('sharp-big', ['audio/big-object-falling.mp3', 'audio/big-object-falling.ogg']);
+
         game.load.audio('footsteps', ['audio/steps.mp3', 'audio/steps.ogg']);
+
     }
 
     _tweenLeft() {
@@ -113,7 +122,7 @@ class Splash {
 
     create() {
         const { game } = this;
-        const music = game.add.audio('carol');
+        const music = game.gameMusic = game.add.audio('carol');
         // we start from 0:03
         // we go to 1:23
         music.addMarker('start', 4, 80, 1, true);
@@ -236,7 +245,7 @@ class Splash {
         text.stroke = '#FFFFFF';
         text.strokeThickness = 20;
 
-        const startText = game.add.text(game.world.centerX, 900, 'Start');
+        const startText = game.add.text(game.world.centerX, 700, 'Start');
         startText.anchor.setTo(0.5);
         startText.font = 'Fontdiner Swanky';
         startText.fontSize = 70;
@@ -250,13 +259,13 @@ class Splash {
 
         const startUp = () => {
             var bounce = game.add.tween(startText);
-            bounce.to({ y: 880, fontSize: 80 }, 400, Phaser.Easing.Exponential.In);
+            bounce.to({ y: 780, fontSize: 80 }, 400, Phaser.Easing.Exponential.In);
             bounce.onComplete.add(startDown);
             bounce.start();
         };
         const startDown = () => {
             var bounce = game.add.tween(startText);
-            bounce.to({ y: 900, fontSize: 70 }, 500, Phaser.Easing.Exponential.Out);
+            bounce.to({ y: 800, fontSize: 70 }, 500, Phaser.Easing.Exponential.Out);
             bounce.onComplete.add(startUp);
             bounce.start();
         };
@@ -268,8 +277,47 @@ class Splash {
             game.scale.startFullScreen(false);
             preventSleep();
             game.state.start('story');
+            //game.state.start('maze-level-3'); 
         });
+
+
+        if (this.savedGame) {
+            const continueText = game.add.text(game.world.centerX, 1000, 'Continue');
+            continueText.anchor.setTo(0.5);
+            continueText.font = 'Fontdiner Swanky';
+            continueText.fontSize = 70;
+            continueText.align = 'center';
+            continueText.stroke = '#FFFFFF';
+            continueText.strokeThickness = 10;
+            const startGradient1 = text.context.createLinearGradient(0, 0, 0, 90);
+            startGradient.addColorStop(0, 'rgb(229, 133, 142)');
+            startGradient.addColorStop(1, 'rgb(224, 13, 34)');
+            continueText.fill = startGradient;
+
+            const startUp1 = () => {
+                var bounce = game.add.tween(continueText);
+                bounce.to({ y: 920, fontSize: 80 }, 400, Phaser.Easing.Exponential.In);
+                bounce.onComplete.add(startDown1);
+                bounce.start();
+            };
+            const startDown1 = () => {
+                var bounce = game.add.tween(continueText);
+                bounce.to({ y: 940, fontSize: 70 }, 500, Phaser.Easing.Exponential.Out);
+                bounce.onComplete.add(startUp1);
+                bounce.start();
+            };
+            startUp1();
+
+            continueText.inputEnabled = true;
+            continueText.events.onInputDown.add(() => {
+                game.scale.fullScreenScaleMode = Phaser.ScaleManager.EXACT_FIT;
+                game.scale.startFullScreen(false);
+                preventSleep();
+                this.loadGame();
+            });
+        }
     }
+
     update() {
         const { cursors, background } = this;
         if (cursors.left.isDown) {

@@ -60,37 +60,37 @@
 
 	var _maze2 = _interopRequireDefault(_maze);
 
-	var _dev = __webpack_require__(73);
+	var _dev = __webpack_require__(98);
 
 	var _dev2 = _interopRequireDefault(_dev);
 
-	var _level1a = __webpack_require__(74);
+	var _level1a = __webpack_require__(99);
 
 	var _level1a2 = _interopRequireDefault(_level1a);
 
-	var _level1b = __webpack_require__(75);
+	var _level1b = __webpack_require__(100);
 
 	var _level1b2 = _interopRequireDefault(_level1b);
 
-	var _level = __webpack_require__(76);
+	var _level = __webpack_require__(101);
 
 	var _level2 = _interopRequireDefault(_level);
 
-	var _splash = __webpack_require__(77);
+	var _splash = __webpack_require__(102);
 
 	var _splash2 = _interopRequireDefault(_splash);
 
-	var _story = __webpack_require__(78);
+	var _story = __webpack_require__(103);
 
 	var _story2 = _interopRequireDefault(_story);
 
-	var _loading = __webpack_require__(80);
+	var _loading = __webpack_require__(105);
 
 	var _loading2 = _interopRequireDefault(_loading);
 
-	var _generate = __webpack_require__(81);
+	var _generate = __webpack_require__(106);
 
-	var _ga = __webpack_require__(79);
+	var _ga = __webpack_require__(104);
 
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -113,6 +113,10 @@
 	  }
 	};
 
+	var savedGame = localStorage.savedGame;
+	if (savedGame) {
+	  savedGame = JSON.parse(savedGame);
+	}
 	//var fogHoleSize = 0.5; // easy mode....level 1
 	var fogHoleSize = 0.3; // normal mode...level 2
 	// 0.2 is a good hard mode .. so level 3
@@ -142,28 +146,44 @@
 	};
 
 	var levels = 3;
-	var nextLevel = function nextLevel() {
-	  var map = (0, _generate.random)(15, 15);
-	  (0, _ga.finishLevel)(levels);
-	  levels++;
-	  game.state.add('maze-level-' + levels, new _maze2.default(game, wrapMap(map, true), nextLevel, 0.17));
+	var loadLevel = function loadLevel(map) {
+	  game.state.add('maze-level-' + levels, new _maze2.default(game, wrapMap(map, true), nextLevel, 0.17, levels));
 	  game.state.start('maze-level-' + levels);
 	};
 
+	var nextLevel = function nextLevel() {
+	  (0, _ga.finishLevel)(levels);
+	  var map = (0, _generate.random)(15, 15);
+	  levels++;
+	  localStorage.savedGame = JSON.stringify({ level: levels, map: map });
+	  loadLevel(map);
+	};
+
+	var loadGame = function loadGame() {
+	  if (savedGame.named) {
+	    game.state.start(savedGame.named);
+	  } else {
+	    levels = savedGame.level;
+	    loadLevel(savedGame.map);
+	  }
+	};
+
 	game.state.add('maze-level-1', new _maze2.default(game, wrapMap(_level1a2.default), function () {
+	  localStorage.savedGame = JSON.stringify({ named: 'maze-level-2' });
 	  (0, _ga.finishLevel)(1);
 	  game.state.start('maze-level-2');
-	}, 0.45));
+	}, 0.45, 1));
 
 	game.state.add('maze-level-2', new _maze2.default(game, wrapMap(_level1b2.default), function () {
+	  localStorage.savedGame = JSON.stringify({ named: 'maze-level-3' });
 	  (0, _ga.finishLevel)(2);
 	  game.state.start('maze-level-3');
-	}, 0.4));
+	}, 0.4, 2));
 
-	game.state.add('maze-level-3', new _maze2.default(game, wrapMap(_level2.default), nextLevel, 0.17));
+	game.state.add('maze-level-3', new _maze2.default(game, wrapMap(_level2.default), nextLevel, 0.17, 3));
 	game.state.add('loading', new _loading2.default(game));
 	game.state.add('story', new _story2.default(game));
-	game.state.add('splash', new _splash2.default(game));
+	game.state.add('splash', new _splash2.default(game, savedGame, loadGame));
 	game.state.start('loading');
 	(0, _ga.send)('start');
 
@@ -107974,6 +107994,8 @@
 	    value: true
 	});
 
+	var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
+
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 	var _phaser = __webpack_require__(65);
@@ -107981,6 +108003,10 @@
 	var _phaser2 = _interopRequireDefault(_phaser);
 
 	var _utils = __webpack_require__(70);
+
+	var _pathfinding = __webpack_require__(73);
+
+	var _pathfinding2 = _interopRequireDefault(_pathfinding);
 
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -107990,17 +108016,29 @@
 
 	var TILE_WIDTH = 55;
 
+
 	//const TILE_HOVER_Z = 0;
 	var PRINT_LIFE = 24000;
 
+	var pos, target;
+	var i = 0;
+
 	var Maze = function () {
-	    function Maze(game, map, nextState, fogHoleSize) {
+	    function Maze(game, map, nextState, fogHoleSize, level) {
 	        _classCallCheck(this, Maze);
 
 	        this.game = game;
 	        this.map = map;
 	        this.nextState = nextState;
 	        this.fogHoleSize = fogHoleSize;
+	        this.cleanMap = map.map(function (row) {
+	            return row.map(function (item) {
+	                return item === 1 ? 1 : 0;
+	            });
+	        });
+	        this.pathfinderGrid = new _pathfinding2.default.Grid(this.cleanMap);
+	        this.pathFinder = new _pathfinding2.default.AStarFinder();
+	        this.level = level;
 	    }
 
 	    _createClass(Maze, [{
@@ -108012,7 +108050,7 @@
 
 	            game.time.advancedTiming = true;
 	            // Set the world size
-	            game.world.setBounds(0, 0, 15000, 15000);
+	            game.world.setBounds(-100, -100, 14000, 14000);
 
 	            // Start the physical system
 	            game.physics.startSystem(_phaser2.default.Plugin.Isometric.ISOARCADE);
@@ -108093,9 +108131,15 @@
 	                map = this.map;
 
 	            this.cursors = game.input.keyboard.createCursorKeys();
+
 	            this.landingSound = game.add.audio('watermelon');
 	            this.landingSound.addMarker('start', 0.25, 1, 0.4);
+
+	            this.fallSound = game.add.audio('sharp-big');
+	            this.fallSound.addMarker('start', 0.1, 0.7, 1);
+
 	            this.footstepsSound = game.add.audio('footsteps');
+
 	            this.footstepsSound.volume = 0.5;
 	            this.footstepsSound.loopFull();
 	            this.footstepsSound.mute = true;
@@ -108111,20 +108155,34 @@
 	            game.physics.isoArcade.gravity.setTo(0, 0, -500);
 
 	            //const allGroup = this.allGroup = this.game.add.group();
-	            var shoeEmitterSe = this.shoeEmitterSe = game.add.emitter();
-	            var shoeEmitterSw = this.shoeEmitterSw = game.add.emitter();
-	            var shoeEmitterNe = this.shoeEmitterNe = game.add.emitter();
-	            var shoeEmitterNw = this.shoeEmitterNw = game.add.emitter();
+	            var maxFootprintsPerEmitter = 15;
+	            var shoeEmitterSe = this.shoeEmitterSe = game.add.emitter(0, 0, maxFootprintsPerEmitter);
+	            var shoeEmitterSw = this.shoeEmitterSw = game.add.emitter(0, 0, maxFootprintsPerEmitter);
+	            var shoeEmitterNe = this.shoeEmitterNe = game.add.emitter(0, 0, maxFootprintsPerEmitter);
+	            var shoeEmitterNw = this.shoeEmitterNw = game.add.emitter(0, 0, maxFootprintsPerEmitter);
+	            var craterEmitter = this.craterEmitter = game.add.emitter(0, 0, 1);
 
 	            var grassShadowGroup = this.grassShadowGroup = game.add.group();
-	            var grassGroup = game.add.group();
-	            var shadowGroup = game.add.group();
+	            var grassGroup = this.grassGroup = game.add.group();
+	            var shadowGroup = this.shadowGroup = game.add.group();
 	            var floorGroup = this.floorGroup = this.game.add.group();
 	            var isoGroup = this.isoGroup = this.game.add.group();
-	            var floorTiles = this.floorTiles = [];
 	            var iceBlocks = this.iceBlocks = [];
 	            var fogGroup = game.add.group();
 	            var controlsGroup = this.controlsGroup = game.add.group();
+
+	            var levelText = game.add.text(game.width - 100, 40, 'Level ' + this.level, controlsGroup);
+	            levelText.anchor.setTo(0.5);
+	            levelText.font = 'Fontdiner Swanky';
+	            levelText.fontSize = 20;
+	            levelText.align = 'center';
+	            levelText.stroke = '#FFFFFF';
+	            levelText.strokeThickness = 1;
+	            levelText.fixedToCamera = true;
+	            var startGradient = levelText.context.createLinearGradient(0, 0, 0, 90);
+	            startGradient.addColorStop(0, 'rgb(229, 133, 142)');
+	            startGradient.addColorStop(1, 'rgb(224, 13, 34)');
+	            levelText.fill = startGradient;
 
 	            var fogHoleSize = this.fogHoleSize;
 
@@ -108148,74 +108206,58 @@
 	                fog.fixedToCamera = true;
 	            }
 
-	            map.concat(map).forEach(function (row, indexY) {
-	                row.concat(row).forEach(function (item, indexX) {
-	                    var x = indexX * (TILE_WIDTH / 2);
-	                    var y = indexY * (TILE_WIDTH / 2);
-	                    var tileType = game.rnd.integerInRange(0, 42);
-	                    var tilesTypeMap = {
-	                        0: 'grass-1',
-	                        1: 'grass-2',
-	                        2: 'grass-3',
-	                        3: 'grass-4'
-	                    };
-	                    if (tilesTypeMap[tileType]) {
-	                        var grass = game.add.isoSprite(x, y, 0, 'grass', tilesTypeMap[tileType], grassGroup);
-	                        grass.scale.setTo(0.4, 0.4);
-	                        grass.anchor.set(0.5, 0.5);
-	                        var shadow = game.add.isoSprite(x, y - 1, 0, 'grass', tilesTypeMap[tileType], grassShadowGroup);
-	                        game.physics.isoArcade.enable(shadow);
-	                        shadow.tint = 0x000000;
-	                        shadow.alpha = 0.6;
-	                        shadow.scale.setTo(0.3, 0.3);
-	                        shadow.anchor.set(0.5, 1);
-	                        shadow.body.immovable = true;
-	                        shadow.body.collideWorldBounds = true;
-	                    }
-	                });
-	            });
+	            // todo this grass sprit count very high so perf killer
+	            // good candidate to 
+	            // populate edges as approaching and cull ones
+	            // not in camera
+	            // this is not worth the frame rate drop!
+	            // map.forEach((row, indexY) => {
+	            //     row.concat(row).forEach((item, indexX) => {
+	            //         const x = (indexX * (TILE_WIDTH));
+	            //         const y = (indexY * (TILE_WIDTH));
+	            //         const tileType = game.rnd.integerInRange(0, 200);
+	            //         const tilesTypeMap = {
+	            //             0: 'grass-1',
+	            //             1: 'grass-2',
+	            //             2: 'grass-3',
+	            //             3: 'grass-4'
+	            //         };
+	            //         if (tilesTypeMap[tileType]) {
+	            //             const grass = game.add.isoSprite(x, y, 0, 'grass', tilesTypeMap[tileType], grassGroup);
+	            //             grass.scale.setTo(0.4, 0.4);
+	            //             grass.anchor.set(0.5, 0.5);
+	            //             const shadow = game.add.isoSprite(x, y - 1, 0, 'grass', tilesTypeMap[tileType], grassShadowGroup);
+	            //             game.physics.isoArcade.enable(shadow);
+	            //             shadow.tint = 0x000000;
+	            //             shadow.alpha = 0.6;
+	            //             shadow.scale.setTo(0.3, 0.3);
+	            //             shadow.anchor.set(0.5, 1);
+	            //             shadow.body.immovable = true;
+	            //             shadow.body.collideWorldBounds = true;
+	            //         }
+	            //     });
+	            // });
 
 	            map.forEach(function (row, indexY) {
 	                row.forEach(function (item, indexX) {
 	                    var x = indexX * TILE_WIDTH;
 	                    var y = indexY * TILE_WIDTH;
 	                    var tileType = game.rnd.integerInRange(0, 10);
-	                    var tilesTypeMap = {
-	                        0: 'tile-ice-plain',
-	                        1: 'tile-ice-plain',
-	                        2: 'tile-ice-plain',
-	                        3: 'tile-ice-plain',
-	                        4: 'tile-ice-plain',
-	                        5: 'tile-ice-plain',
-	                        6: 'tile-ice-cracked',
-	                        7: 'tile-ice-cracked',
-	                        8: 'tile-ice-cracked',
-	                        9: 'tile-ice-grass',
-	                        10: 'tile-ice-grass'
-	                    };
-
-	                    // const floorTile = game.add.isoSprite(x, y, 0, tilesTypeMap[tileType], 0, floorGroup);
-	                    // game.physics.isoArcade.enable(floorTile);
-	                    // floorTile.body.immovable = true;
-	                    // floorTile.body.collideWorldBounds = true;
-	                    // floorTile.anchor.set(0.5);
-	                    // floorTiles.push(floorTile);
-	                    // floorTile.visible = false;
 
 	                    if (item === 1) {
 	                        var z = 0;
 
-	                        var shadow = game.add.isoSprite(x - 20, y - 10, z, 'block-ice-plain', 0, shadowGroup);
+	                        var shadow = game.add.isoSprite(x - 20, y - 10, z, 'block-ice-small', 0, shadowGroup);
 	                        shadow.tint = 0x000000;
 	                        shadow.alpha = 0.6;
 	                        game.physics.isoArcade.enable(shadow);
 	                        shadow.anchor.set(0.5, 0.5);
-	                        // shadow.body.rotation = 330;
 	                        shadow.body.immovable = true;
 	                        shadow.body.collideWorldBounds = true;
-	                        shadow.scale.setTo(0.9, 0.9);
+	                        shadow.scale.setTo(2.6, 2.6);
 
 	                        var iceBlock = game.add.isoSprite(x, y, z, 'block-ice-plain', 0, isoGroup);
+	                        iceBlock.scale.setTo(2, 2);
 	                        game.physics.isoArcade.enable(iceBlock);
 	                        iceBlock.anchor.set(0.5, 0.5);
 	                        iceBlock.body.immovable = true;
@@ -108269,7 +108311,7 @@
 	                        var _shadow3 = _this2.giftShadow = game.add.isoSprite(x, y, _z3, 'gift', 0, isoGroup);
 	                        _shadow3.tint = 0x000000;
 	                        _shadow3.alpha = 0.6;
-	                        _shadow3.scale.setTo(0.12, 0.12);
+	                        _shadow3.scale.setTo(1.12, 1.12);
 	                        _shadow3.anchor.set(0.5, 0.5);
 
 	                        var gift = _this2.gift = game.add.isoSprite(x, y, _z3, 'gift', 0, isoGroup);
@@ -108287,7 +108329,7 @@
 	                        _this2.randomlyJumpGift = (0, _utils.randomly)(function () {
 	                            _this2.gift.body.velocity.z = 200;
 	                        }, 3000, 10000);
-	                        gift.scale.setTo(0.15, 0.15);
+	                        //gift.scale.setTo(0.15, 0.15);
 	                    } else if (item === 5) {
 	                        var _z4 = 0;
 	                        var _shadow4 = game.add.isoSprite(x - 30, y, _z4, 'tree', 0, isoGroup);
@@ -108307,13 +108349,119 @@
 	                        _igloo.body.collideWorldBounds = true;
 	                        iceBlocks.push(_igloo);
 	                        _igloo.scale.setTo(0.1, 0.1);
+	                    } else if (item === 6) {
+	                        (function () {
+	                            var z = 300;
+	                            var shadow = _this2.snowmanShadow = game.add.isoSprite(x, y, z, 'snowman', 0, isoGroup);
+	                            var snowman = _this2.snowman = game.add.isoSprite(x, y, z, 'snowman', 0, isoGroup);
+	                            snowman.scale.setTo(0.3, 0.3);
+	                            shadow.scale.setTo(0.27, 0.27);
+	                            shadow.tint = 0x000000;
+	                            shadow.alpha = 0.6;
+
+	                            game.physics.isoArcade.enable(shadow);
+	                            game.physics.isoArcade.enable(snowman);
+
+	                            snowman.body.drag.x = 500;
+	                            snowman.body.drag.y = 500;
+	                            // snowman.body.widthX = 25;
+	                            // snowman.body.widthY = 25;
+
+	                            snowman.body.offset.x = 5;
+	                            snowman.body.offset.y = 5;
+	                            // shadow.body.offset.x = 10;
+	                            // shadow.body.offset.y = 25;
+
+
+	                            shadow.body.immovable = true;
+	                            shadow.body.collideWorldBounds = true;
+
+	                            snowman.anchor.set(0.5, 0.5);
+	                            shadow.anchor.set(0.5, 1);
+
+	                            snowman.body.bounce.z = 0.1;
+	                            // snowman.body.bounce.x = 0.5;
+	                            // snowman.body.bounce.y = 0.5;
+
+	                            snowman.body.collideWorldBounds = true;
+	                            var jumpAnimation = snowman.animations.add('jump', [5, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5], 14, false);
+	                            shadow.animations.add('jump', [5, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5], 14, false);
+	                            var ignoreFirst = true;
+	                            jumpAnimation.enableUpdate = true;
+	                            jumpAnimation.onUpdate.add(function () {
+	                                if (jumpAnimation.frame === 3) {
+	                                    var _ret2 = function () {
+	                                        if (ignoreFirst) {
+	                                            ignoreFirst = false;
+	                                            return {
+	                                                v: void 0
+	                                            };
+	                                        }
+	                                        ignoreFirst = true;
+	                                        var distanceToPlayer = game.physics.arcade.distanceToXY(snowman.body, _this2.player.body.x, _this2.player.body.y);
+	                                        console.log(distanceToPlayer);
+	                                        if (distanceToPlayer < 750) {
+	                                            (function () {
+	                                                // 5 max at 0 - 150
+	                                                // 4 at 150 - 300
+	                                                // 3 at 300 - 450
+	                                                // 2 at 450 - 600
+	                                                // 1 at 600 - 750
+	                                                var getShake = function getShake(distance) {
+	                                                    if (distance > 600) {
+	                                                        return 1;
+	                                                    }
+	                                                    if (distance > 450) {
+	                                                        return 2;
+	                                                    }
+	                                                    if (distance > 300) {
+	                                                        return 3;
+	                                                    }
+	                                                    if (distance > 150) {
+	                                                        return 4;
+	                                                    }
+	                                                    return 5;
+	                                                };
+	                                                var shake = function shake(e) {
+	                                                    // Shake the blocks by moving it up and down 3 times really fast
+	                                                    game.add.tween(e.body).to({ z: getShake(distanceToPlayer) }, 40, _phaser2.default.Easing.Sinusoidal.InOut, false, 0, 3, true).start();
+	                                                };
+	                                                _this2.iceBlocks.forEach(shake);
+	                                                craterEmitter.makeParticles('crater', 1);
+	                                                craterEmitter.explode(0, 1);
+	                                            })();
+	                                        }
+	                                        if (distanceToPlayer < 1500) {
+	                                            var volume = 1 - distanceToPlayer / 1500;
+	                                            _this2.fallSound.play('start', 0, Math.max(0, volume));
+	                                            if (volume > 0.4) {
+	                                                _this2.landingSound.play('start', 0, Math.max(0, volume - 0.4));
+	                                            } else if (volume > 0) {
+	                                                _this2.landingSound.play('start', 0, 0.1);
+	                                            }
+	                                        }
+	                                    }();
+
+	                                    if ((typeof _ret2 === 'undefined' ? 'undefined' : _typeof(_ret2)) === "object") return _ret2.v;
+	                                }
+	                            });
+	                        })();
 	                    }
 	                });
 	            });
 
 	            game.iso.simpleSort(this.isoGroup);
-
 	            this._createControls();
+
+	            craterEmitter.setXSpeed(0, 0);
+	            craterEmitter.setYSpeed(0, 0);
+	            craterEmitter.gravity = 0;
+	            craterEmitter.maxParticleScale = 0.7;
+	            craterEmitter.minParticleScale = 0.65;
+	            craterEmitter.width = 10;
+	            craterEmitter.minRotation = 0;
+	            craterEmitter.maxRotation = 0;
+	            craterEmitter.alpha = 0.6;
 
 	            shoeEmitterNe.makeParticles('footprints', 'footprints-ne');
 	            shoeEmitterNe.setXSpeed(0, 0);
@@ -108364,39 +108512,38 @@
 
 	            // now its all snow
 	            this.randomlyChangeWind = (0, _utils.randomly)(this._changeWind, 7000, 18000);
-	            var back_emitter = this.back_emitter = game.add.emitter(0, 0, 1000);
+	            var back_emitter = this.back_emitter = game.add.emitter(0, 0, 20);
 	            back_emitter.makeParticles('snowflakes', [0, 1, 2, 3, 4, 5]);
 	            back_emitter.maxParticleScale = 0.6;
 	            back_emitter.minParticleScale = 0.2;
-	            back_emitter.setYSpeed(20, 100);
+	            back_emitter.setYSpeed(100, 200);
 	            back_emitter.gravity = 0;
 	            back_emitter.width = 1980;
 	            back_emitter.minRotation = 0;
 	            back_emitter.maxRotation = 40;
 
-	            var mid_emitter = this.mid_emitter = game.add.emitter(0, 0, 800);
-	            mid_emitter.makeParticles('snowflakes', [0, 1, 2, 3, 4, 5]);
-	            mid_emitter.maxParticleScale = 1.2;
-	            mid_emitter.minParticleScale = 0.8;
-	            mid_emitter.setYSpeed(50, 150);
-	            mid_emitter.gravity = 0;
-	            mid_emitter.width = 1980;
-	            mid_emitter.minRotation = 0;
-	            mid_emitter.maxRotation = 40;
-
-	            var front_emitter = this.front_emitter = game.add.emitter(0, 0, 600);
+	            var front_emitter = this.front_emitter = game.add.emitter(0, 0, 10);
 	            front_emitter.makeParticles('snowflakes_large', [0, 1, 2, 3, 4, 5]);
 	            front_emitter.maxParticleScale = 1;
 	            front_emitter.minParticleScale = 0.5;
-	            front_emitter.setYSpeed(100, 200);
+	            front_emitter.setYSpeed(100, 100);
 	            front_emitter.gravity = 0;
 	            front_emitter.width = 1980;
 	            front_emitter.minRotation = 0;
 	            front_emitter.maxRotation = 40;
 
-	            back_emitter.start(false, 24000, 200);
-	            mid_emitter.start(false, 22000, 400);
-	            front_emitter.start(false, 16000, 1000);
+	            //start(explode, lifespan, frequency, quantity, forceQuantity)
+	            // back_emitter.start(false, 24000, 200);
+
+	            // front_emitter.start(false, 16000, 1000);
+
+	            //  This will emit a quantity of 1 particles every 500ms. Each particle will live for 20000ms.
+	            //  The -1 means "run forever"
+	            // flow(lifespan, frequency, quantity, total, immediate)
+	            back_emitter.flow(6000, 500, 1, -1);
+
+	            front_emitter.flow(15000, 2000, 1, -1);
+
 	            this._changeWind();
 	        }
 	    }, {
@@ -108410,10 +108557,13 @@
 	                down = cursors.down,
 	                left = cursors.left,
 	                right = cursors.right;
-	            var grassShadowGroup = this.grassShadowGroup,
+	            var craterEmitter = this.craterEmitter,
+	                level = this.level,
+	                snowman = this.snowman,
+	                snowmanShadow = this.snowmanShadow,
+	                grassShadowGroup = this.grassShadowGroup,
 	                player = this.player,
 	                game = this.game,
-	                floorTiles = this.floorTiles,
 	                iceBlocks = this.iceBlocks,
 	                gift = this.gift,
 	                playerShadow = this.playerShadow,
@@ -108423,7 +108573,6 @@
 	                shoeEmitterNe = this.shoeEmitterNe,
 	                shoeEmitterNw = this.shoeEmitterNw,
 	                back_emitter = this.back_emitter,
-	                mid_emitter = this.mid_emitter,
 	                front_emitter = this.front_emitter;
 
 	            grassShadowGroup.forEach(function (e) {
@@ -108442,6 +108591,17 @@
 	            giftShadow.body.z = gift.body.z;
 	            giftShadow.body.rotation = 330;
 
+	            if (this.snowman) {
+	                snowmanShadow.body.x = snowman.body.x - 10 - snowman.body.z;
+	                snowmanShadow.body.y = snowman.body.y;
+	                snowmanShadow.body.z = snowman.body.z;
+	                snowmanShadow.body.rotation = 350;
+
+	                var craterPoint = this.craterPoint = game.iso.project(snowman.body);
+	                craterEmitter.x = craterPoint.x - 10;
+	                craterEmitter.y = craterPoint.y + 25;
+	            }
+
 	            var shoePoint = this.shoePoint = game.iso.project(player.body);
 	            shoeEmitterSe.x = shoePoint.x + 10;
 	            shoeEmitterSe.y = shoePoint.y + 10;
@@ -108454,15 +108614,21 @@
 
 	            var snowPoint = this.shoePoint = game.iso.project({ x: player.body.x, y: player.body.y, z: 500 });
 	            back_emitter.x = snowPoint.x;
-	            mid_emitter.x = snowPoint.x;
+
 	            front_emitter.x = snowPoint.x;
 	            back_emitter.y = snowPoint.y;
-	            mid_emitter.y = snowPoint.y;
 	            front_emitter.y = snowPoint.y;
 
 	            game.physics.isoArcade.collide(player, iceBlocks);
-	            game.physics.isoArcade.collide(player, floorTiles);
-	            game.physics.isoArcade.collide(gift, floorTiles);
+	            //game.physics.isoArcade.collide(snowman, iceBlocks); // prevent him getting stuck!
+
+	            game.physics.isoArcade.overlap(player, snowman, function () {
+	                _this3.footstepsSound.pause();
+	                _this3.footstepsSound.mute = true;
+	                game.gameMusic.restart('start');
+	                game.state.start('maze-level-' + level);
+	            });
+
 	            game.physics.isoArcade.overlap(player, gift, function () {
 	                _this3.footstepsSound.pause();
 	                _this3.footstepsSound.mute = true;
@@ -108543,6 +108709,8 @@
 	            this.randomlyChangeWind();
 	            this.playLandingSound();
 	            this.cancelPlayerBounce();
+	            this.updateGridPositions();
+	            this.jumpSnowman();
 	        }
 	    }, {
 	        key: 'walkPlayer',
@@ -108606,11 +108774,139 @@
 	                });
 	            };
 	            setXSpeed(this.back_emitter, max);
-	            setXSpeed(this.mid_emitter, max);
 	            setXSpeed(this.front_emitter, max);
 	        }
+	    }, {
+	        key: 'updateGridPositions',
+	        value: function updateGridPositions() {
+	            var player = this.player,
+	                snowman = this.snowman,
+	                cleanMap = this.cleanMap;
 
-	        // render() {
+	            if (snowman) {
+	                // debugger;
+	                var playerGridPosition = this.worldToGrid(player.body.center.x, player.body.center.y);
+	                var snowmanGridPosition = this.worldToGrid(snowman.body.center.x, snowman.body.center.y);
+
+	                // they might be calculated as being in a wall :(
+	                if (!cleanMap[playerGridPosition.y][playerGridPosition.x]) {
+	                    this.playerGridPosition = playerGridPosition;
+	                }
+	                if (!cleanMap[snowmanGridPosition.y][snowmanGridPosition.x]) {
+	                    this.snowmanGridPosition = snowmanGridPosition;
+	                }
+	            }
+	        }
+	    }, {
+	        key: 'jumpSnowman',
+	        value: function jumpSnowman() {
+	            var _this5 = this;
+
+	            // todo shaddow following...maybe worht the refactor now!
+	            var snowman = this.snowman,
+	                jumping = this.jumping,
+	                player = this.player,
+	                game = this.game,
+	                playerGridPosition = this.playerGridPosition,
+	                snowmanGridPosition = this.snowmanGridPosition,
+	                snowmanShadow = this.snowmanShadow;
+
+	            if (snowman && !jumping && snowman.body.z === 0) {
+	                (function () {
+	                    _this5.jumping = true;
+	                    var distanceToPlayer = game.physics.arcade.distanceToXY(snowman.body, player.body.x, player.body.y);
+
+	                    var faceLeft = function faceLeft() {
+	                        return snowman.scale.x = snowman.scale.x > 0 ? snowman.scale.x : snowman.scale.x * -1;
+	                    };
+	                    var faceRight = function faceRight() {
+	                        return snowman.scale.x = snowman.scale.x < 0 ? snowman.scale.x : snowman.scale.x * -1;
+	                    };
+	                    var faceShadowLeft = function faceShadowLeft() {
+	                        return snowmanShadow.scale.x = snowmanShadow.scale.x < 0 ? snowmanShadow.scale.x : snowmanShadow.scale.x * -1;
+	                    };
+	                    var faceShadowRight = function faceShadowRight() {
+	                        return snowmanShadow.scale.x = snowmanShadow.scale.x > 0 ? snowmanShadow.scale.x : snowmanShadow.scale.x * -1;
+	                    };
+
+	                    var faceCorrectDirection = function faceCorrectDirection(angle) {
+	                        var deg = game.math.radToDeg(angle) + 90 + 45;
+	                        deg = deg < 0 ? deg + 360 : deg;
+	                        var NE = 45;
+	                        var SE = 90 + 45;
+	                        var SW = 180 + 45;
+	                        var NW = 180 + 90 + 45;
+	                        var dir = (0, _utils.nearest)(deg, [NW, NE, SE, SW]);
+	                        if (dir === SE) {
+	                            // go right
+	                            faceRight();
+	                            faceShadowRight();
+	                        } else if (dir === SW) {
+	                            // go down
+	                            faceLeft();
+	                            faceShadowLeft();
+	                        } else if (dir === NE) {
+	                            // go up
+	                            faceRight();
+	                            faceShadowRight();
+	                        } else if (dir === NW) {
+	                            // go left
+	                            faceLeft();
+	                            faceShadowLeft();
+	                        }
+	                    };
+
+	                    var path = _this5.pathFinder.findPath(snowmanGridPosition.x, snowmanGridPosition.y, playerGridPosition.x, playerGridPosition.y, _this5.pathfinderGrid.clone());
+	                    var isPlayerNear = function isPlayerNear() {
+	                        return path.length < 5;
+	                    };
+	                    if (distanceToPlayer < 200 && isPlayerNear()) {
+	                        var angleToPlayer = game.physics.arcade.angleToXY(snowman.body.center, player.body.center.x, player.body.center.y);
+	                        var velocity = game.physics.arcade.velocityFromAngle(game.math.radToDeg(angleToPlayer), 250);
+	                        snowman.body.velocity.z = 100;
+	                        faceCorrectDirection(angleToPlayer);
+	                        snowman.body.velocity.x = velocity.x;
+	                        snowman.body.velocity.y = velocity.y;
+	                        snowman.animations.play('jump');
+	                        snowmanShadow.animations.play('jump');
+	                    } else {
+	                        // stalk player!
+	                        var nextSquare = path[1];
+	                        if (nextSquare) {
+	                            var nextLocation = _this5.gridToWorld(nextSquare[0], nextSquare[1]);
+	                            var angle = game.physics.arcade.angleToXY(snowman.body, nextLocation.x, nextLocation.y);
+	                            faceCorrectDirection(angle);
+	                            var _velocity = game.physics.arcade.velocityFromAngle(game.math.radToDeg(angle), 250);
+	                            snowman.body.velocity.z = 100;
+	                            snowman.body.velocity.x = _velocity.x;
+	                            snowman.body.velocity.y = _velocity.y;
+	                            snowman.animations.play('jump');
+	                            snowmanShadow.animations.play('jump');
+	                        }
+	                    }
+	                    setTimeout(function () {
+	                        return _this5.jumping = false;
+	                    }, 2000);
+	                })();
+	            }
+	        }
+	    }, {
+	        key: 'gridToWorld',
+	        value: function gridToWorld(gridX, gridY) {
+	            return { x: gridX * TILE_WIDTH, y: gridY * TILE_WIDTH };
+	        }
+	    }, {
+	        key: 'worldToGrid',
+	        value: function worldToGrid(worldX, worldY) {
+	            return { x: Math.floor(worldX / TILE_WIDTH), y: Math.floor(worldY / TILE_WIDTH) };
+	        }
+	    }, {
+	        key: 'render',
+	        value: function render() {
+	            this.game.debug.text(this.game.time.fps, 10, 10);
+	            //        this.game.debug.body(this.player);
+	            //      this.game.debug.body(this.snowman);
+	        }
 	        //     this.game.debug.text(this.game.time.fps, 10, 10);
 	        //     this.game.debug.text(this.shoePoint.x, 10, 30, '#FFFFFF');
 	        //     this.game.debug.text(this.shoePoint.y, 10, 50, '#FFFFFF');
@@ -108624,14 +108920,9 @@
 	        //     //        this.game.debug.text(this.game.time.fps, 10, 10); 
 
 
-	        //     //this.game.debug.body(this.player);
 	        //     // this.iceBlocks.forEach((e) => {
 	        //     //     this.game.debug.body(e);
 	        //     // });
-	        //     //this.floorTiles.forEach((e) => {
-	        //     //    this.game.debug.body(e);
-	        //     ///});
-	        // }
 
 	    }]);
 
@@ -108650,7 +108941,7 @@
 	Object.defineProperty(exports, "__esModule", {
 	    value: true
 	});
-	exports.randomly = undefined;
+	exports.nearest = exports.randomly = undefined;
 	exports.preventSleep = preventSleep;
 	exports.stopPreventSleep = stopPreventSleep;
 
@@ -108703,6 +108994,19 @@
 	    console.log('pause');
 	    video.pause();
 	}
+
+	var counts = [4, 9, 15, 6, 2],
+	    goal = 5;
+
+	var closest = counts.reduce(function (prev, curr) {
+	    return Math.abs(curr - goal) < Math.abs(prev - goal) ? curr : prev;
+	});
+
+	var nearest = exports.nearest = function nearest(goal, array) {
+	    return array.reduce(function (prev, curr) {
+	        return Math.abs(curr - goal) < Math.abs(prev - goal) ? curr : prev;
+	    });
+	};
 
 /***/ },
 /* 71 */
@@ -109552,6 +109856,2687 @@
 
 /***/ },
 /* 73 */
+/***/ function(module, exports, __webpack_require__) {
+
+	module.exports = __webpack_require__(74);
+
+
+/***/ },
+/* 74 */
+/***/ function(module, exports, __webpack_require__) {
+
+	module.exports = {
+	    'Heap'                      : __webpack_require__(75),
+	    'Node'                      : __webpack_require__(78),
+	    'Grid'                      : __webpack_require__(79),
+	    'Util'                      : __webpack_require__(81),
+	    'DiagonalMovement'          : __webpack_require__(80),
+	    'Heuristic'                 : __webpack_require__(82),
+	    'AStarFinder'               : __webpack_require__(83),
+	    'BestFirstFinder'           : __webpack_require__(84),
+	    'BreadthFirstFinder'        : __webpack_require__(85),
+	    'DijkstraFinder'            : __webpack_require__(86),
+	    'BiAStarFinder'             : __webpack_require__(87),
+	    'BiBestFirstFinder'         : __webpack_require__(88),
+	    'BiBreadthFirstFinder'      : __webpack_require__(89),
+	    'BiDijkstraFinder'          : __webpack_require__(90),
+	    'IDAStarFinder'             : __webpack_require__(91),
+	    'JumpPointFinder'           : __webpack_require__(92),
+	};
+
+
+/***/ },
+/* 75 */
+/***/ function(module, exports, __webpack_require__) {
+
+	module.exports = __webpack_require__(76);
+
+
+/***/ },
+/* 76 */
+/***/ function(module, exports, __webpack_require__) {
+
+	/* WEBPACK VAR INJECTION */(function(module) {// Generated by CoffeeScript 1.8.0
+	(function() {
+	  var Heap, defaultCmp, floor, heapify, heappop, heappush, heappushpop, heapreplace, insort, min, nlargest, nsmallest, updateItem, _siftdown, _siftup;
+
+	  floor = Math.floor, min = Math.min;
+
+
+	  /*
+	  Default comparison function to be used
+	   */
+
+	  defaultCmp = function(x, y) {
+	    if (x < y) {
+	      return -1;
+	    }
+	    if (x > y) {
+	      return 1;
+	    }
+	    return 0;
+	  };
+
+
+	  /*
+	  Insert item x in list a, and keep it sorted assuming a is sorted.
+	  
+	  If x is already in a, insert it to the right of the rightmost x.
+	  
+	  Optional args lo (default 0) and hi (default a.length) bound the slice
+	  of a to be searched.
+	   */
+
+	  insort = function(a, x, lo, hi, cmp) {
+	    var mid;
+	    if (lo == null) {
+	      lo = 0;
+	    }
+	    if (cmp == null) {
+	      cmp = defaultCmp;
+	    }
+	    if (lo < 0) {
+	      throw new Error('lo must be non-negative');
+	    }
+	    if (hi == null) {
+	      hi = a.length;
+	    }
+	    while (lo < hi) {
+	      mid = floor((lo + hi) / 2);
+	      if (cmp(x, a[mid]) < 0) {
+	        hi = mid;
+	      } else {
+	        lo = mid + 1;
+	      }
+	    }
+	    return ([].splice.apply(a, [lo, lo - lo].concat(x)), x);
+	  };
+
+
+	  /*
+	  Push item onto heap, maintaining the heap invariant.
+	   */
+
+	  heappush = function(array, item, cmp) {
+	    if (cmp == null) {
+	      cmp = defaultCmp;
+	    }
+	    array.push(item);
+	    return _siftdown(array, 0, array.length - 1, cmp);
+	  };
+
+
+	  /*
+	  Pop the smallest item off the heap, maintaining the heap invariant.
+	   */
+
+	  heappop = function(array, cmp) {
+	    var lastelt, returnitem;
+	    if (cmp == null) {
+	      cmp = defaultCmp;
+	    }
+	    lastelt = array.pop();
+	    if (array.length) {
+	      returnitem = array[0];
+	      array[0] = lastelt;
+	      _siftup(array, 0, cmp);
+	    } else {
+	      returnitem = lastelt;
+	    }
+	    return returnitem;
+	  };
+
+
+	  /*
+	  Pop and return the current smallest value, and add the new item.
+	  
+	  This is more efficient than heappop() followed by heappush(), and can be
+	  more appropriate when using a fixed size heap. Note that the value
+	  returned may be larger than item! That constrains reasonable use of
+	  this routine unless written as part of a conditional replacement:
+	      if item > array[0]
+	        item = heapreplace(array, item)
+	   */
+
+	  heapreplace = function(array, item, cmp) {
+	    var returnitem;
+	    if (cmp == null) {
+	      cmp = defaultCmp;
+	    }
+	    returnitem = array[0];
+	    array[0] = item;
+	    _siftup(array, 0, cmp);
+	    return returnitem;
+	  };
+
+
+	  /*
+	  Fast version of a heappush followed by a heappop.
+	   */
+
+	  heappushpop = function(array, item, cmp) {
+	    var _ref;
+	    if (cmp == null) {
+	      cmp = defaultCmp;
+	    }
+	    if (array.length && cmp(array[0], item) < 0) {
+	      _ref = [array[0], item], item = _ref[0], array[0] = _ref[1];
+	      _siftup(array, 0, cmp);
+	    }
+	    return item;
+	  };
+
+
+	  /*
+	  Transform list into a heap, in-place, in O(array.length) time.
+	   */
+
+	  heapify = function(array, cmp) {
+	    var i, _i, _j, _len, _ref, _ref1, _results, _results1;
+	    if (cmp == null) {
+	      cmp = defaultCmp;
+	    }
+	    _ref1 = (function() {
+	      _results1 = [];
+	      for (var _j = 0, _ref = floor(array.length / 2); 0 <= _ref ? _j < _ref : _j > _ref; 0 <= _ref ? _j++ : _j--){ _results1.push(_j); }
+	      return _results1;
+	    }).apply(this).reverse();
+	    _results = [];
+	    for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+	      i = _ref1[_i];
+	      _results.push(_siftup(array, i, cmp));
+	    }
+	    return _results;
+	  };
+
+
+	  /*
+	  Update the position of the given item in the heap.
+	  This function should be called every time the item is being modified.
+	   */
+
+	  updateItem = function(array, item, cmp) {
+	    var pos;
+	    if (cmp == null) {
+	      cmp = defaultCmp;
+	    }
+	    pos = array.indexOf(item);
+	    if (pos === -1) {
+	      return;
+	    }
+	    _siftdown(array, 0, pos, cmp);
+	    return _siftup(array, pos, cmp);
+	  };
+
+
+	  /*
+	  Find the n largest elements in a dataset.
+	   */
+
+	  nlargest = function(array, n, cmp) {
+	    var elem, result, _i, _len, _ref;
+	    if (cmp == null) {
+	      cmp = defaultCmp;
+	    }
+	    result = array.slice(0, n);
+	    if (!result.length) {
+	      return result;
+	    }
+	    heapify(result, cmp);
+	    _ref = array.slice(n);
+	    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+	      elem = _ref[_i];
+	      heappushpop(result, elem, cmp);
+	    }
+	    return result.sort(cmp).reverse();
+	  };
+
+
+	  /*
+	  Find the n smallest elements in a dataset.
+	   */
+
+	  nsmallest = function(array, n, cmp) {
+	    var elem, i, los, result, _i, _j, _len, _ref, _ref1, _results;
+	    if (cmp == null) {
+	      cmp = defaultCmp;
+	    }
+	    if (n * 10 <= array.length) {
+	      result = array.slice(0, n).sort(cmp);
+	      if (!result.length) {
+	        return result;
+	      }
+	      los = result[result.length - 1];
+	      _ref = array.slice(n);
+	      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+	        elem = _ref[_i];
+	        if (cmp(elem, los) < 0) {
+	          insort(result, elem, 0, null, cmp);
+	          result.pop();
+	          los = result[result.length - 1];
+	        }
+	      }
+	      return result;
+	    }
+	    heapify(array, cmp);
+	    _results = [];
+	    for (i = _j = 0, _ref1 = min(n, array.length); 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
+	      _results.push(heappop(array, cmp));
+	    }
+	    return _results;
+	  };
+
+	  _siftdown = function(array, startpos, pos, cmp) {
+	    var newitem, parent, parentpos;
+	    if (cmp == null) {
+	      cmp = defaultCmp;
+	    }
+	    newitem = array[pos];
+	    while (pos > startpos) {
+	      parentpos = (pos - 1) >> 1;
+	      parent = array[parentpos];
+	      if (cmp(newitem, parent) < 0) {
+	        array[pos] = parent;
+	        pos = parentpos;
+	        continue;
+	      }
+	      break;
+	    }
+	    return array[pos] = newitem;
+	  };
+
+	  _siftup = function(array, pos, cmp) {
+	    var childpos, endpos, newitem, rightpos, startpos;
+	    if (cmp == null) {
+	      cmp = defaultCmp;
+	    }
+	    endpos = array.length;
+	    startpos = pos;
+	    newitem = array[pos];
+	    childpos = 2 * pos + 1;
+	    while (childpos < endpos) {
+	      rightpos = childpos + 1;
+	      if (rightpos < endpos && !(cmp(array[childpos], array[rightpos]) < 0)) {
+	        childpos = rightpos;
+	      }
+	      array[pos] = array[childpos];
+	      pos = childpos;
+	      childpos = 2 * pos + 1;
+	    }
+	    array[pos] = newitem;
+	    return _siftdown(array, startpos, pos, cmp);
+	  };
+
+	  Heap = (function() {
+	    Heap.push = heappush;
+
+	    Heap.pop = heappop;
+
+	    Heap.replace = heapreplace;
+
+	    Heap.pushpop = heappushpop;
+
+	    Heap.heapify = heapify;
+
+	    Heap.updateItem = updateItem;
+
+	    Heap.nlargest = nlargest;
+
+	    Heap.nsmallest = nsmallest;
+
+	    function Heap(cmp) {
+	      this.cmp = cmp != null ? cmp : defaultCmp;
+	      this.nodes = [];
+	    }
+
+	    Heap.prototype.push = function(x) {
+	      return heappush(this.nodes, x, this.cmp);
+	    };
+
+	    Heap.prototype.pop = function() {
+	      return heappop(this.nodes, this.cmp);
+	    };
+
+	    Heap.prototype.peek = function() {
+	      return this.nodes[0];
+	    };
+
+	    Heap.prototype.contains = function(x) {
+	      return this.nodes.indexOf(x) !== -1;
+	    };
+
+	    Heap.prototype.replace = function(x) {
+	      return heapreplace(this.nodes, x, this.cmp);
+	    };
+
+	    Heap.prototype.pushpop = function(x) {
+	      return heappushpop(this.nodes, x, this.cmp);
+	    };
+
+	    Heap.prototype.heapify = function() {
+	      return heapify(this.nodes, this.cmp);
+	    };
+
+	    Heap.prototype.updateItem = function(x) {
+	      return updateItem(this.nodes, x, this.cmp);
+	    };
+
+	    Heap.prototype.clear = function() {
+	      return this.nodes = [];
+	    };
+
+	    Heap.prototype.empty = function() {
+	      return this.nodes.length === 0;
+	    };
+
+	    Heap.prototype.size = function() {
+	      return this.nodes.length;
+	    };
+
+	    Heap.prototype.clone = function() {
+	      var heap;
+	      heap = new Heap();
+	      heap.nodes = this.nodes.slice(0);
+	      return heap;
+	    };
+
+	    Heap.prototype.toArray = function() {
+	      return this.nodes.slice(0);
+	    };
+
+	    Heap.prototype.insert = Heap.prototype.push;
+
+	    Heap.prototype.top = Heap.prototype.peek;
+
+	    Heap.prototype.front = Heap.prototype.peek;
+
+	    Heap.prototype.has = Heap.prototype.contains;
+
+	    Heap.prototype.copy = Heap.prototype.clone;
+
+	    return Heap;
+
+	  })();
+
+	  if (typeof module !== "undefined" && module !== null ? module.exports : void 0) {
+	    module.exports = Heap;
+	  } else {
+	    window.Heap = Heap;
+	  }
+
+	}).call(this);
+
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(77)(module)))
+
+/***/ },
+/* 77 */
+/***/ function(module, exports) {
+
+	module.exports = function(module) {
+		if(!module.webpackPolyfill) {
+			module.deprecate = function() {};
+			module.paths = [];
+			// module.parent = undefined by default
+			module.children = [];
+			module.webpackPolyfill = 1;
+		}
+		return module;
+	}
+
+
+/***/ },
+/* 78 */
+/***/ function(module, exports) {
+
+	/**
+	 * A node in grid. 
+	 * This class holds some basic information about a node and custom 
+	 * attributes may be added, depending on the algorithms' needs.
+	 * @constructor
+	 * @param {number} x - The x coordinate of the node on the grid.
+	 * @param {number} y - The y coordinate of the node on the grid.
+	 * @param {boolean} [walkable] - Whether this node is walkable.
+	 */
+	function Node(x, y, walkable) {
+	    /**
+	     * The x coordinate of the node on the grid.
+	     * @type number
+	     */
+	    this.x = x;
+	    /**
+	     * The y coordinate of the node on the grid.
+	     * @type number
+	     */
+	    this.y = y;
+	    /**
+	     * Whether this node can be walked through.
+	     * @type boolean
+	     */
+	    this.walkable = (walkable === undefined ? true : walkable);
+	}
+
+	module.exports = Node;
+
+
+/***/ },
+/* 79 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var Node = __webpack_require__(78);
+	var DiagonalMovement = __webpack_require__(80);
+
+	/**
+	 * The Grid class, which serves as the encapsulation of the layout of the nodes.
+	 * @constructor
+	 * @param {number|Array<Array<(number|boolean)>>} width_or_matrix Number of columns of the grid, or matrix
+	 * @param {number} height Number of rows of the grid.
+	 * @param {Array<Array<(number|boolean)>>} [matrix] - A 0-1 matrix
+	 *     representing the walkable status of the nodes(0 or false for walkable).
+	 *     If the matrix is not supplied, all the nodes will be walkable.  */
+	function Grid(width_or_matrix, height, matrix) {
+	    var width;
+
+	    if (typeof width_or_matrix !== 'object') {
+	        width = width_or_matrix;
+	    } else {
+	        height = width_or_matrix.length;
+	        width = width_or_matrix[0].length;
+	        matrix = width_or_matrix;
+	    }
+
+	    /**
+	     * The number of columns of the grid.
+	     * @type number
+	     */
+	    this.width = width;
+	    /**
+	     * The number of rows of the grid.
+	     * @type number
+	     */
+	    this.height = height;
+
+	    /**
+	     * A 2D array of nodes.
+	     */
+	    this.nodes = this._buildNodes(width, height, matrix);
+	}
+
+	/**
+	 * Build and return the nodes.
+	 * @private
+	 * @param {number} width
+	 * @param {number} height
+	 * @param {Array<Array<number|boolean>>} [matrix] - A 0-1 matrix representing
+	 *     the walkable status of the nodes.
+	 * @see Grid
+	 */
+	Grid.prototype._buildNodes = function(width, height, matrix) {
+	    var i, j,
+	        nodes = new Array(height);
+
+	    for (i = 0; i < height; ++i) {
+	        nodes[i] = new Array(width);
+	        for (j = 0; j < width; ++j) {
+	            nodes[i][j] = new Node(j, i);
+	        }
+	    }
+
+
+	    if (matrix === undefined) {
+	        return nodes;
+	    }
+
+	    if (matrix.length !== height || matrix[0].length !== width) {
+	        throw new Error('Matrix size does not fit');
+	    }
+
+	    for (i = 0; i < height; ++i) {
+	        for (j = 0; j < width; ++j) {
+	            if (matrix[i][j]) {
+	                // 0, false, null will be walkable
+	                // while others will be un-walkable
+	                nodes[i][j].walkable = false;
+	            }
+	        }
+	    }
+
+	    return nodes;
+	};
+
+
+	Grid.prototype.getNodeAt = function(x, y) {
+	    return this.nodes[y][x];
+	};
+
+
+	/**
+	 * Determine whether the node at the given position is walkable.
+	 * (Also returns false if the position is outside the grid.)
+	 * @param {number} x - The x coordinate of the node.
+	 * @param {number} y - The y coordinate of the node.
+	 * @return {boolean} - The walkability of the node.
+	 */
+	Grid.prototype.isWalkableAt = function(x, y) {
+	    return this.isInside(x, y) && this.nodes[y][x].walkable;
+	};
+
+
+	/**
+	 * Determine whether the position is inside the grid.
+	 * XXX: `grid.isInside(x, y)` is wierd to read.
+	 * It should be `(x, y) is inside grid`, but I failed to find a better
+	 * name for this method.
+	 * @param {number} x
+	 * @param {number} y
+	 * @return {boolean}
+	 */
+	Grid.prototype.isInside = function(x, y) {
+	    return (x >= 0 && x < this.width) && (y >= 0 && y < this.height);
+	};
+
+
+	/**
+	 * Set whether the node on the given position is walkable.
+	 * NOTE: throws exception if the coordinate is not inside the grid.
+	 * @param {number} x - The x coordinate of the node.
+	 * @param {number} y - The y coordinate of the node.
+	 * @param {boolean} walkable - Whether the position is walkable.
+	 */
+	Grid.prototype.setWalkableAt = function(x, y, walkable) {
+	    this.nodes[y][x].walkable = walkable;
+	};
+
+
+	/**
+	 * Get the neighbors of the given node.
+	 *
+	 *     offsets      diagonalOffsets:
+	 *  +---+---+---+    +---+---+---+
+	 *  |   | 0 |   |    | 0 |   | 1 |
+	 *  +---+---+---+    +---+---+---+
+	 *  | 3 |   | 1 |    |   |   |   |
+	 *  +---+---+---+    +---+---+---+
+	 *  |   | 2 |   |    | 3 |   | 2 |
+	 *  +---+---+---+    +---+---+---+
+	 *
+	 *  When allowDiagonal is true, if offsets[i] is valid, then
+	 *  diagonalOffsets[i] and
+	 *  diagonalOffsets[(i + 1) % 4] is valid.
+	 * @param {Node} node
+	 * @param {DiagonalMovement} diagonalMovement
+	 */
+	Grid.prototype.getNeighbors = function(node, diagonalMovement) {
+	    var x = node.x,
+	        y = node.y,
+	        neighbors = [],
+	        s0 = false, d0 = false,
+	        s1 = false, d1 = false,
+	        s2 = false, d2 = false,
+	        s3 = false, d3 = false,
+	        nodes = this.nodes;
+
+	    // ↑
+	    if (this.isWalkableAt(x, y - 1)) {
+	        neighbors.push(nodes[y - 1][x]);
+	        s0 = true;
+	    }
+	    // →
+	    if (this.isWalkableAt(x + 1, y)) {
+	        neighbors.push(nodes[y][x + 1]);
+	        s1 = true;
+	    }
+	    // ↓
+	    if (this.isWalkableAt(x, y + 1)) {
+	        neighbors.push(nodes[y + 1][x]);
+	        s2 = true;
+	    }
+	    // ←
+	    if (this.isWalkableAt(x - 1, y)) {
+	        neighbors.push(nodes[y][x - 1]);
+	        s3 = true;
+	    }
+
+	    if (diagonalMovement === DiagonalMovement.Never) {
+	        return neighbors;
+	    }
+
+	    if (diagonalMovement === DiagonalMovement.OnlyWhenNoObstacles) {
+	        d0 = s3 && s0;
+	        d1 = s0 && s1;
+	        d2 = s1 && s2;
+	        d3 = s2 && s3;
+	    } else if (diagonalMovement === DiagonalMovement.IfAtMostOneObstacle) {
+	        d0 = s3 || s0;
+	        d1 = s0 || s1;
+	        d2 = s1 || s2;
+	        d3 = s2 || s3;
+	    } else if (diagonalMovement === DiagonalMovement.Always) {
+	        d0 = true;
+	        d1 = true;
+	        d2 = true;
+	        d3 = true;
+	    } else {
+	        throw new Error('Incorrect value of diagonalMovement');
+	    }
+
+	    // ↖
+	    if (d0 && this.isWalkableAt(x - 1, y - 1)) {
+	        neighbors.push(nodes[y - 1][x - 1]);
+	    }
+	    // ↗
+	    if (d1 && this.isWalkableAt(x + 1, y - 1)) {
+	        neighbors.push(nodes[y - 1][x + 1]);
+	    }
+	    // ↘
+	    if (d2 && this.isWalkableAt(x + 1, y + 1)) {
+	        neighbors.push(nodes[y + 1][x + 1]);
+	    }
+	    // ↙
+	    if (d3 && this.isWalkableAt(x - 1, y + 1)) {
+	        neighbors.push(nodes[y + 1][x - 1]);
+	    }
+
+	    return neighbors;
+	};
+
+
+	/**
+	 * Get a clone of this grid.
+	 * @return {Grid} Cloned grid.
+	 */
+	Grid.prototype.clone = function() {
+	    var i, j,
+
+	        width = this.width,
+	        height = this.height,
+	        thisNodes = this.nodes,
+
+	        newGrid = new Grid(width, height),
+	        newNodes = new Array(height);
+
+	    for (i = 0; i < height; ++i) {
+	        newNodes[i] = new Array(width);
+	        for (j = 0; j < width; ++j) {
+	            newNodes[i][j] = new Node(j, i, thisNodes[i][j].walkable);
+	        }
+	    }
+
+	    newGrid.nodes = newNodes;
+
+	    return newGrid;
+	};
+
+	module.exports = Grid;
+
+
+/***/ },
+/* 80 */
+/***/ function(module, exports) {
+
+	var DiagonalMovement = {
+	    Always: 1,
+	    Never: 2,
+	    IfAtMostOneObstacle: 3,
+	    OnlyWhenNoObstacles: 4
+	};
+
+	module.exports = DiagonalMovement;
+
+/***/ },
+/* 81 */
+/***/ function(module, exports) {
+
+	/**
+	 * Backtrace according to the parent records and return the path.
+	 * (including both start and end nodes)
+	 * @param {Node} node End node
+	 * @return {Array<Array<number>>} the path
+	 */
+	function backtrace(node) {
+	    var path = [[node.x, node.y]];
+	    while (node.parent) {
+	        node = node.parent;
+	        path.push([node.x, node.y]);
+	    }
+	    return path.reverse();
+	}
+	exports.backtrace = backtrace;
+
+	/**
+	 * Backtrace from start and end node, and return the path.
+	 * (including both start and end nodes)
+	 * @param {Node}
+	 * @param {Node}
+	 */
+	function biBacktrace(nodeA, nodeB) {
+	    var pathA = backtrace(nodeA),
+	        pathB = backtrace(nodeB);
+	    return pathA.concat(pathB.reverse());
+	}
+	exports.biBacktrace = biBacktrace;
+
+	/**
+	 * Compute the length of the path.
+	 * @param {Array<Array<number>>} path The path
+	 * @return {number} The length of the path
+	 */
+	function pathLength(path) {
+	    var i, sum = 0, a, b, dx, dy;
+	    for (i = 1; i < path.length; ++i) {
+	        a = path[i - 1];
+	        b = path[i];
+	        dx = a[0] - b[0];
+	        dy = a[1] - b[1];
+	        sum += Math.sqrt(dx * dx + dy * dy);
+	    }
+	    return sum;
+	}
+	exports.pathLength = pathLength;
+
+
+	/**
+	 * Given the start and end coordinates, return all the coordinates lying
+	 * on the line formed by these coordinates, based on Bresenham's algorithm.
+	 * http://en.wikipedia.org/wiki/Bresenham's_line_algorithm#Simplification
+	 * @param {number} x0 Start x coordinate
+	 * @param {number} y0 Start y coordinate
+	 * @param {number} x1 End x coordinate
+	 * @param {number} y1 End y coordinate
+	 * @return {Array<Array<number>>} The coordinates on the line
+	 */
+	function interpolate(x0, y0, x1, y1) {
+	    var abs = Math.abs,
+	        line = [],
+	        sx, sy, dx, dy, err, e2;
+
+	    dx = abs(x1 - x0);
+	    dy = abs(y1 - y0);
+
+	    sx = (x0 < x1) ? 1 : -1;
+	    sy = (y0 < y1) ? 1 : -1;
+
+	    err = dx - dy;
+
+	    while (true) {
+	        line.push([x0, y0]);
+
+	        if (x0 === x1 && y0 === y1) {
+	            break;
+	        }
+	        
+	        e2 = 2 * err;
+	        if (e2 > -dy) {
+	            err = err - dy;
+	            x0 = x0 + sx;
+	        }
+	        if (e2 < dx) {
+	            err = err + dx;
+	            y0 = y0 + sy;
+	        }
+	    }
+
+	    return line;
+	}
+	exports.interpolate = interpolate;
+
+
+	/**
+	 * Given a compressed path, return a new path that has all the segments
+	 * in it interpolated.
+	 * @param {Array<Array<number>>} path The path
+	 * @return {Array<Array<number>>} expanded path
+	 */
+	function expandPath(path) {
+	    var expanded = [],
+	        len = path.length,
+	        coord0, coord1,
+	        interpolated,
+	        interpolatedLen,
+	        i, j;
+
+	    if (len < 2) {
+	        return expanded;
+	    }
+
+	    for (i = 0; i < len - 1; ++i) {
+	        coord0 = path[i];
+	        coord1 = path[i + 1];
+
+	        interpolated = interpolate(coord0[0], coord0[1], coord1[0], coord1[1]);
+	        interpolatedLen = interpolated.length;
+	        for (j = 0; j < interpolatedLen - 1; ++j) {
+	            expanded.push(interpolated[j]);
+	        }
+	    }
+	    expanded.push(path[len - 1]);
+
+	    return expanded;
+	}
+	exports.expandPath = expandPath;
+
+
+	/**
+	 * Smoothen the give path.
+	 * The original path will not be modified; a new path will be returned.
+	 * @param {PF.Grid} grid
+	 * @param {Array<Array<number>>} path The path
+	 */
+	function smoothenPath(grid, path) {
+	    var len = path.length,
+	        x0 = path[0][0],        // path start x
+	        y0 = path[0][1],        // path start y
+	        x1 = path[len - 1][0],  // path end x
+	        y1 = path[len - 1][1],  // path end y
+	        sx, sy,                 // current start coordinate
+	        ex, ey,                 // current end coordinate
+	        newPath,
+	        i, j, coord, line, testCoord, blocked;
+
+	    sx = x0;
+	    sy = y0;
+	    newPath = [[sx, sy]];
+
+	    for (i = 2; i < len; ++i) {
+	        coord = path[i];
+	        ex = coord[0];
+	        ey = coord[1];
+	        line = interpolate(sx, sy, ex, ey);
+
+	        blocked = false;
+	        for (j = 1; j < line.length; ++j) {
+	            testCoord = line[j];
+
+	            if (!grid.isWalkableAt(testCoord[0], testCoord[1])) {
+	                blocked = true;
+	                break;
+	            }
+	        }
+	        if (blocked) {
+	            lastValidCoord = path[i - 1];
+	            newPath.push(lastValidCoord);
+	            sx = lastValidCoord[0];
+	            sy = lastValidCoord[1];
+	        }
+	    }
+	    newPath.push([x1, y1]);
+
+	    return newPath;
+	}
+	exports.smoothenPath = smoothenPath;
+
+
+	/**
+	 * Compress a path, remove redundant nodes without altering the shape
+	 * The original path is not modified
+	 * @param {Array<Array<number>>} path The path
+	 * @return {Array<Array<number>>} The compressed path
+	 */
+	function compressPath(path) {
+
+	    // nothing to compress
+	    if(path.length < 3) {
+	        return path;
+	    }
+
+	    var compressed = [],
+	        sx = path[0][0], // start x
+	        sy = path[0][1], // start y
+	        px = path[1][0], // second point x
+	        py = path[1][1], // second point y
+	        dx = px - sx, // direction between the two points
+	        dy = py - sy, // direction between the two points
+	        lx, ly,
+	        ldx, ldy,
+	        sq, i;
+
+	    // normalize the direction
+	    sq = Math.sqrt(dx*dx + dy*dy);
+	    dx /= sq;
+	    dy /= sq;
+
+	    // start the new path
+	    compressed.push([sx,sy]);
+
+	    for(i = 2; i < path.length; i++) {
+
+	        // store the last point
+	        lx = px;
+	        ly = py;
+
+	        // store the last direction
+	        ldx = dx;
+	        ldy = dy;
+
+	        // next point
+	        px = path[i][0];
+	        py = path[i][1];
+
+	        // next direction
+	        dx = px - lx;
+	        dy = py - ly;
+
+	        // normalize
+	        sq = Math.sqrt(dx*dx + dy*dy);
+	        dx /= sq;
+	        dy /= sq;
+
+	        // if the direction has changed, store the point
+	        if ( dx !== ldx || dy !== ldy ) {
+	            compressed.push([lx,ly]);
+	        }
+	    }
+
+	    // store the last point
+	    compressed.push([px,py]);
+
+	    return compressed;
+	}
+	exports.compressPath = compressPath;
+
+
+/***/ },
+/* 82 */
+/***/ function(module, exports) {
+
+	/**
+	 * @namespace PF.Heuristic
+	 * @description A collection of heuristic functions.
+	 */
+	module.exports = {
+
+	  /**
+	   * Manhattan distance.
+	   * @param {number} dx - Difference in x.
+	   * @param {number} dy - Difference in y.
+	   * @return {number} dx + dy
+	   */
+	  manhattan: function(dx, dy) {
+	      return dx + dy;
+	  },
+
+	  /**
+	   * Euclidean distance.
+	   * @param {number} dx - Difference in x.
+	   * @param {number} dy - Difference in y.
+	   * @return {number} sqrt(dx * dx + dy * dy)
+	   */
+	  euclidean: function(dx, dy) {
+	      return Math.sqrt(dx * dx + dy * dy);
+	  },
+
+	  /**
+	   * Octile distance.
+	   * @param {number} dx - Difference in x.
+	   * @param {number} dy - Difference in y.
+	   * @return {number} sqrt(dx * dx + dy * dy) for grids
+	   */
+	  octile: function(dx, dy) {
+	      var F = Math.SQRT2 - 1;
+	      return (dx < dy) ? F * dx + dy : F * dy + dx;
+	  },
+
+	  /**
+	   * Chebyshev distance.
+	   * @param {number} dx - Difference in x.
+	   * @param {number} dy - Difference in y.
+	   * @return {number} max(dx, dy)
+	   */
+	  chebyshev: function(dx, dy) {
+	      return Math.max(dx, dy);
+	  }
+
+	};
+
+
+/***/ },
+/* 83 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var Heap       = __webpack_require__(75);
+	var Util       = __webpack_require__(81);
+	var Heuristic  = __webpack_require__(82);
+	var DiagonalMovement = __webpack_require__(80);
+
+	/**
+	 * A* path-finder. Based upon https://github.com/bgrins/javascript-astar
+	 * @constructor
+	 * @param {Object} opt
+	 * @param {boolean} opt.allowDiagonal Whether diagonal movement is allowed.
+	 *     Deprecated, use diagonalMovement instead.
+	 * @param {boolean} opt.dontCrossCorners Disallow diagonal movement touching 
+	 *     block corners. Deprecated, use diagonalMovement instead.
+	 * @param {DiagonalMovement} opt.diagonalMovement Allowed diagonal movement.
+	 * @param {function} opt.heuristic Heuristic function to estimate the distance
+	 *     (defaults to manhattan).
+	 * @param {number} opt.weight Weight to apply to the heuristic to allow for
+	 *     suboptimal paths, in order to speed up the search.
+	 */
+	function AStarFinder(opt) {
+	    opt = opt || {};
+	    this.allowDiagonal = opt.allowDiagonal;
+	    this.dontCrossCorners = opt.dontCrossCorners;
+	    this.heuristic = opt.heuristic || Heuristic.manhattan;
+	    this.weight = opt.weight || 1;
+	    this.diagonalMovement = opt.diagonalMovement;
+
+	    if (!this.diagonalMovement) {
+	        if (!this.allowDiagonal) {
+	            this.diagonalMovement = DiagonalMovement.Never;
+	        } else {
+	            if (this.dontCrossCorners) {
+	                this.diagonalMovement = DiagonalMovement.OnlyWhenNoObstacles;
+	            } else {
+	                this.diagonalMovement = DiagonalMovement.IfAtMostOneObstacle;
+	            }
+	        }
+	    }
+
+	    // When diagonal movement is allowed the manhattan heuristic is not
+	    //admissible. It should be octile instead
+	    if (this.diagonalMovement === DiagonalMovement.Never) {
+	        this.heuristic = opt.heuristic || Heuristic.manhattan;
+	    } else {
+	        this.heuristic = opt.heuristic || Heuristic.octile;
+	    }
+	}
+
+	/**
+	 * Find and return the the path.
+	 * @return {Array<Array<number>>} The path, including both start and
+	 *     end positions.
+	 */
+	AStarFinder.prototype.findPath = function(startX, startY, endX, endY, grid) {
+	    var openList = new Heap(function(nodeA, nodeB) {
+	            return nodeA.f - nodeB.f;
+	        }),
+	        startNode = grid.getNodeAt(startX, startY),
+	        endNode = grid.getNodeAt(endX, endY),
+	        heuristic = this.heuristic,
+	        diagonalMovement = this.diagonalMovement,
+	        weight = this.weight,
+	        abs = Math.abs, SQRT2 = Math.SQRT2,
+	        node, neighbors, neighbor, i, l, x, y, ng;
+
+	    // set the `g` and `f` value of the start node to be 0
+	    startNode.g = 0;
+	    startNode.f = 0;
+
+	    // push the start node into the open list
+	    openList.push(startNode);
+	    startNode.opened = true;
+
+	    // while the open list is not empty
+	    while (!openList.empty()) {
+	        // pop the position of node which has the minimum `f` value.
+	        node = openList.pop();
+	        node.closed = true;
+
+	        // if reached the end position, construct the path and return it
+	        if (node === endNode) {
+	            return Util.backtrace(endNode);
+	        }
+
+	        // get neigbours of the current node
+	        neighbors = grid.getNeighbors(node, diagonalMovement);
+	        for (i = 0, l = neighbors.length; i < l; ++i) {
+	            neighbor = neighbors[i];
+
+	            if (neighbor.closed) {
+	                continue;
+	            }
+
+	            x = neighbor.x;
+	            y = neighbor.y;
+
+	            // get the distance between current node and the neighbor
+	            // and calculate the next g score
+	            ng = node.g + ((x - node.x === 0 || y - node.y === 0) ? 1 : SQRT2);
+
+	            // check if the neighbor has not been inspected yet, or
+	            // can be reached with smaller cost from the current node
+	            if (!neighbor.opened || ng < neighbor.g) {
+	                neighbor.g = ng;
+	                neighbor.h = neighbor.h || weight * heuristic(abs(x - endX), abs(y - endY));
+	                neighbor.f = neighbor.g + neighbor.h;
+	                neighbor.parent = node;
+
+	                if (!neighbor.opened) {
+	                    openList.push(neighbor);
+	                    neighbor.opened = true;
+	                } else {
+	                    // the neighbor can be reached with smaller cost.
+	                    // Since its f value has been updated, we have to
+	                    // update its position in the open list
+	                    openList.updateItem(neighbor);
+	                }
+	            }
+	        } // end for each neighbor
+	    } // end while not open list empty
+
+	    // fail to find the path
+	    return [];
+	};
+
+	module.exports = AStarFinder;
+
+
+/***/ },
+/* 84 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var AStarFinder = __webpack_require__(83);
+
+	/**
+	 * Best-First-Search path-finder.
+	 * @constructor
+	 * @extends AStarFinder
+	 * @param {Object} opt
+	 * @param {boolean} opt.allowDiagonal Whether diagonal movement is allowed.
+	 *     Deprecated, use diagonalMovement instead.
+	 * @param {boolean} opt.dontCrossCorners Disallow diagonal movement touching
+	 *     block corners. Deprecated, use diagonalMovement instead.
+	 * @param {DiagonalMovement} opt.diagonalMovement Allowed diagonal movement.
+	 * @param {function} opt.heuristic Heuristic function to estimate the distance
+	 *     (defaults to manhattan).
+	 */
+	function BestFirstFinder(opt) {
+	    AStarFinder.call(this, opt);
+
+	    var orig = this.heuristic;
+	    this.heuristic = function(dx, dy) {
+	        return orig(dx, dy) * 1000000;
+	    };
+	}
+
+	BestFirstFinder.prototype = new AStarFinder();
+	BestFirstFinder.prototype.constructor = BestFirstFinder;
+
+	module.exports = BestFirstFinder;
+
+
+/***/ },
+/* 85 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var Util = __webpack_require__(81);
+	var DiagonalMovement = __webpack_require__(80);
+
+	/**
+	 * Breadth-First-Search path finder.
+	 * @constructor
+	 * @param {Object} opt
+	 * @param {boolean} opt.allowDiagonal Whether diagonal movement is allowed.
+	 *     Deprecated, use diagonalMovement instead.
+	 * @param {boolean} opt.dontCrossCorners Disallow diagonal movement touching
+	 *     block corners. Deprecated, use diagonalMovement instead.
+	 * @param {DiagonalMovement} opt.diagonalMovement Allowed diagonal movement.
+	 */
+	function BreadthFirstFinder(opt) {
+	    opt = opt || {};
+	    this.allowDiagonal = opt.allowDiagonal;
+	    this.dontCrossCorners = opt.dontCrossCorners;
+	    this.diagonalMovement = opt.diagonalMovement;
+
+	    if (!this.diagonalMovement) {
+	        if (!this.allowDiagonal) {
+	            this.diagonalMovement = DiagonalMovement.Never;
+	        } else {
+	            if (this.dontCrossCorners) {
+	                this.diagonalMovement = DiagonalMovement.OnlyWhenNoObstacles;
+	            } else {
+	                this.diagonalMovement = DiagonalMovement.IfAtMostOneObstacle;
+	            }
+	        }
+	    }
+	}
+
+	/**
+	 * Find and return the the path.
+	 * @return {Array<Array<number>>} The path, including both start and
+	 *     end positions.
+	 */
+	BreadthFirstFinder.prototype.findPath = function(startX, startY, endX, endY, grid) {
+	    var openList = [],
+	        diagonalMovement = this.diagonalMovement,
+	        startNode = grid.getNodeAt(startX, startY),
+	        endNode = grid.getNodeAt(endX, endY),
+	        neighbors, neighbor, node, i, l;
+
+	    // push the start pos into the queue
+	    openList.push(startNode);
+	    startNode.opened = true;
+
+	    // while the queue is not empty
+	    while (openList.length) {
+	        // take the front node from the queue
+	        node = openList.shift();
+	        node.closed = true;
+
+	        // reached the end position
+	        if (node === endNode) {
+	            return Util.backtrace(endNode);
+	        }
+
+	        neighbors = grid.getNeighbors(node, diagonalMovement);
+	        for (i = 0, l = neighbors.length; i < l; ++i) {
+	            neighbor = neighbors[i];
+
+	            // skip this neighbor if it has been inspected before
+	            if (neighbor.closed || neighbor.opened) {
+	                continue;
+	            }
+
+	            openList.push(neighbor);
+	            neighbor.opened = true;
+	            neighbor.parent = node;
+	        }
+	    }
+	    
+	    // fail to find the path
+	    return [];
+	};
+
+	module.exports = BreadthFirstFinder;
+
+
+/***/ },
+/* 86 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var AStarFinder = __webpack_require__(83);
+
+	/**
+	 * Dijkstra path-finder.
+	 * @constructor
+	 * @extends AStarFinder
+	 * @param {Object} opt
+	 * @param {boolean} opt.allowDiagonal Whether diagonal movement is allowed.
+	 *     Deprecated, use diagonalMovement instead.
+	 * @param {boolean} opt.dontCrossCorners Disallow diagonal movement touching
+	 *     block corners. Deprecated, use diagonalMovement instead.
+	 * @param {DiagonalMovement} opt.diagonalMovement Allowed diagonal movement.
+	 */
+	function DijkstraFinder(opt) {
+	    AStarFinder.call(this, opt);
+	    this.heuristic = function(dx, dy) {
+	        return 0;
+	    };
+	}
+
+	DijkstraFinder.prototype = new AStarFinder();
+	DijkstraFinder.prototype.constructor = DijkstraFinder;
+
+	module.exports = DijkstraFinder;
+
+
+/***/ },
+/* 87 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var Heap       = __webpack_require__(75);
+	var Util       = __webpack_require__(81);
+	var Heuristic  = __webpack_require__(82);
+	var DiagonalMovement = __webpack_require__(80);
+
+	/**
+	 * A* path-finder.
+	 * based upon https://github.com/bgrins/javascript-astar
+	 * @constructor
+	 * @param {Object} opt
+	 * @param {boolean} opt.allowDiagonal Whether diagonal movement is allowed.
+	 *     Deprecated, use diagonalMovement instead.
+	 * @param {boolean} opt.dontCrossCorners Disallow diagonal movement touching
+	 *     block corners. Deprecated, use diagonalMovement instead.
+	 * @param {DiagonalMovement} opt.diagonalMovement Allowed diagonal movement.
+	 * @param {function} opt.heuristic Heuristic function to estimate the distance
+	 *     (defaults to manhattan).
+	 * @param {number} opt.weight Weight to apply to the heuristic to allow for
+	 *     suboptimal paths, in order to speed up the search.
+	 */
+	function BiAStarFinder(opt) {
+	    opt = opt || {};
+	    this.allowDiagonal = opt.allowDiagonal;
+	    this.dontCrossCorners = opt.dontCrossCorners;
+	    this.diagonalMovement = opt.diagonalMovement;
+	    this.heuristic = opt.heuristic || Heuristic.manhattan;
+	    this.weight = opt.weight || 1;
+
+	    if (!this.diagonalMovement) {
+	        if (!this.allowDiagonal) {
+	            this.diagonalMovement = DiagonalMovement.Never;
+	        } else {
+	            if (this.dontCrossCorners) {
+	                this.diagonalMovement = DiagonalMovement.OnlyWhenNoObstacles;
+	            } else {
+	                this.diagonalMovement = DiagonalMovement.IfAtMostOneObstacle;
+	            }
+	        }
+	    }
+
+	    //When diagonal movement is allowed the manhattan heuristic is not admissible
+	    //It should be octile instead
+	    if (this.diagonalMovement === DiagonalMovement.Never) {
+	        this.heuristic = opt.heuristic || Heuristic.manhattan;
+	    } else {
+	        this.heuristic = opt.heuristic || Heuristic.octile;
+	    }
+	}
+
+	/**
+	 * Find and return the the path.
+	 * @return {Array<Array<number>>} The path, including both start and
+	 *     end positions.
+	 */
+	BiAStarFinder.prototype.findPath = function(startX, startY, endX, endY, grid) {
+	    var cmp = function(nodeA, nodeB) {
+	            return nodeA.f - nodeB.f;
+	        },
+	        startOpenList = new Heap(cmp),
+	        endOpenList = new Heap(cmp),
+	        startNode = grid.getNodeAt(startX, startY),
+	        endNode = grid.getNodeAt(endX, endY),
+	        heuristic = this.heuristic,
+	        diagonalMovement = this.diagonalMovement,
+	        weight = this.weight,
+	        abs = Math.abs, SQRT2 = Math.SQRT2,
+	        node, neighbors, neighbor, i, l, x, y, ng,
+	        BY_START = 1, BY_END = 2;
+
+	    // set the `g` and `f` value of the start node to be 0
+	    // and push it into the start open list
+	    startNode.g = 0;
+	    startNode.f = 0;
+	    startOpenList.push(startNode);
+	    startNode.opened = BY_START;
+
+	    // set the `g` and `f` value of the end node to be 0
+	    // and push it into the open open list
+	    endNode.g = 0;
+	    endNode.f = 0;
+	    endOpenList.push(endNode);
+	    endNode.opened = BY_END;
+
+	    // while both the open lists are not empty
+	    while (!startOpenList.empty() && !endOpenList.empty()) {
+
+	        // pop the position of start node which has the minimum `f` value.
+	        node = startOpenList.pop();
+	        node.closed = true;
+
+	        // get neigbours of the current node
+	        neighbors = grid.getNeighbors(node, diagonalMovement);
+	        for (i = 0, l = neighbors.length; i < l; ++i) {
+	            neighbor = neighbors[i];
+
+	            if (neighbor.closed) {
+	                continue;
+	            }
+	            if (neighbor.opened === BY_END) {
+	                return Util.biBacktrace(node, neighbor);
+	            }
+
+	            x = neighbor.x;
+	            y = neighbor.y;
+
+	            // get the distance between current node and the neighbor
+	            // and calculate the next g score
+	            ng = node.g + ((x - node.x === 0 || y - node.y === 0) ? 1 : SQRT2);
+
+	            // check if the neighbor has not been inspected yet, or
+	            // can be reached with smaller cost from the current node
+	            if (!neighbor.opened || ng < neighbor.g) {
+	                neighbor.g = ng;
+	                neighbor.h = neighbor.h ||
+	                    weight * heuristic(abs(x - endX), abs(y - endY));
+	                neighbor.f = neighbor.g + neighbor.h;
+	                neighbor.parent = node;
+
+	                if (!neighbor.opened) {
+	                    startOpenList.push(neighbor);
+	                    neighbor.opened = BY_START;
+	                } else {
+	                    // the neighbor can be reached with smaller cost.
+	                    // Since its f value has been updated, we have to
+	                    // update its position in the open list
+	                    startOpenList.updateItem(neighbor);
+	                }
+	            }
+	        } // end for each neighbor
+
+
+	        // pop the position of end node which has the minimum `f` value.
+	        node = endOpenList.pop();
+	        node.closed = true;
+
+	        // get neigbours of the current node
+	        neighbors = grid.getNeighbors(node, diagonalMovement);
+	        for (i = 0, l = neighbors.length; i < l; ++i) {
+	            neighbor = neighbors[i];
+
+	            if (neighbor.closed) {
+	                continue;
+	            }
+	            if (neighbor.opened === BY_START) {
+	                return Util.biBacktrace(neighbor, node);
+	            }
+
+	            x = neighbor.x;
+	            y = neighbor.y;
+
+	            // get the distance between current node and the neighbor
+	            // and calculate the next g score
+	            ng = node.g + ((x - node.x === 0 || y - node.y === 0) ? 1 : SQRT2);
+
+	            // check if the neighbor has not been inspected yet, or
+	            // can be reached with smaller cost from the current node
+	            if (!neighbor.opened || ng < neighbor.g) {
+	                neighbor.g = ng;
+	                neighbor.h = neighbor.h ||
+	                    weight * heuristic(abs(x - startX), abs(y - startY));
+	                neighbor.f = neighbor.g + neighbor.h;
+	                neighbor.parent = node;
+
+	                if (!neighbor.opened) {
+	                    endOpenList.push(neighbor);
+	                    neighbor.opened = BY_END;
+	                } else {
+	                    // the neighbor can be reached with smaller cost.
+	                    // Since its f value has been updated, we have to
+	                    // update its position in the open list
+	                    endOpenList.updateItem(neighbor);
+	                }
+	            }
+	        } // end for each neighbor
+	    } // end while not open list empty
+
+	    // fail to find the path
+	    return [];
+	};
+
+	module.exports = BiAStarFinder;
+
+
+/***/ },
+/* 88 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var BiAStarFinder = __webpack_require__(87);
+
+	/**
+	 * Bi-direcitional Best-First-Search path-finder.
+	 * @constructor
+	 * @extends BiAStarFinder
+	 * @param {Object} opt
+	 * @param {boolean} opt.allowDiagonal Whether diagonal movement is allowed.
+	 *     Deprecated, use diagonalMovement instead.
+	 * @param {boolean} opt.dontCrossCorners Disallow diagonal movement touching
+	 *     block corners. Deprecated, use diagonalMovement instead.
+	 * @param {DiagonalMovement} opt.diagonalMovement Allowed diagonal movement.
+	 * @param {function} opt.heuristic Heuristic function to estimate the distance
+	 *     (defaults to manhattan).
+	 */
+	function BiBestFirstFinder(opt) {
+	    BiAStarFinder.call(this, opt);
+
+	    var orig = this.heuristic;
+	    this.heuristic = function(dx, dy) {
+	        return orig(dx, dy) * 1000000;
+	    };
+	}
+
+	BiBestFirstFinder.prototype = new BiAStarFinder();
+	BiBestFirstFinder.prototype.constructor = BiBestFirstFinder;
+
+	module.exports = BiBestFirstFinder;
+
+
+/***/ },
+/* 89 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var Util = __webpack_require__(81);
+	var DiagonalMovement = __webpack_require__(80);
+
+	/**
+	 * Bi-directional Breadth-First-Search path finder.
+	 * @constructor
+	 * @param {object} opt
+	 * @param {boolean} opt.allowDiagonal Whether diagonal movement is allowed.
+	 *     Deprecated, use diagonalMovement instead.
+	 * @param {boolean} opt.dontCrossCorners Disallow diagonal movement touching
+	 *     block corners. Deprecated, use diagonalMovement instead.
+	 * @param {DiagonalMovement} opt.diagonalMovement Allowed diagonal movement.
+	 */
+	function BiBreadthFirstFinder(opt) {
+	    opt = opt || {};
+	    this.allowDiagonal = opt.allowDiagonal;
+	    this.dontCrossCorners = opt.dontCrossCorners;
+	    this.diagonalMovement = opt.diagonalMovement;
+
+	    if (!this.diagonalMovement) {
+	        if (!this.allowDiagonal) {
+	            this.diagonalMovement = DiagonalMovement.Never;
+	        } else {
+	            if (this.dontCrossCorners) {
+	                this.diagonalMovement = DiagonalMovement.OnlyWhenNoObstacles;
+	            } else {
+	                this.diagonalMovement = DiagonalMovement.IfAtMostOneObstacle;
+	            }
+	        }
+	    }
+	}
+
+
+	/**
+	 * Find and return the the path.
+	 * @return {Array<Array<number>>} The path, including both start and
+	 *     end positions.
+	 */
+	BiBreadthFirstFinder.prototype.findPath = function(startX, startY, endX, endY, grid) {
+	    var startNode = grid.getNodeAt(startX, startY),
+	        endNode = grid.getNodeAt(endX, endY),
+	        startOpenList = [], endOpenList = [],
+	        neighbors, neighbor, node,
+	        diagonalMovement = this.diagonalMovement,
+	        BY_START = 0, BY_END = 1,
+	        i, l;
+
+	    // push the start and end nodes into the queues
+	    startOpenList.push(startNode);
+	    startNode.opened = true;
+	    startNode.by = BY_START;
+
+	    endOpenList.push(endNode);
+	    endNode.opened = true;
+	    endNode.by = BY_END;
+
+	    // while both the queues are not empty
+	    while (startOpenList.length && endOpenList.length) {
+
+	        // expand start open list
+
+	        node = startOpenList.shift();
+	        node.closed = true;
+
+	        neighbors = grid.getNeighbors(node, diagonalMovement);
+	        for (i = 0, l = neighbors.length; i < l; ++i) {
+	            neighbor = neighbors[i];
+
+	            if (neighbor.closed) {
+	                continue;
+	            }
+	            if (neighbor.opened) {
+	                // if this node has been inspected by the reversed search,
+	                // then a path is found.
+	                if (neighbor.by === BY_END) {
+	                    return Util.biBacktrace(node, neighbor);
+	                }
+	                continue;
+	            }
+	            startOpenList.push(neighbor);
+	            neighbor.parent = node;
+	            neighbor.opened = true;
+	            neighbor.by = BY_START;
+	        }
+
+	        // expand end open list
+
+	        node = endOpenList.shift();
+	        node.closed = true;
+
+	        neighbors = grid.getNeighbors(node, diagonalMovement);
+	        for (i = 0, l = neighbors.length; i < l; ++i) {
+	            neighbor = neighbors[i];
+
+	            if (neighbor.closed) {
+	                continue;
+	            }
+	            if (neighbor.opened) {
+	                if (neighbor.by === BY_START) {
+	                    return Util.biBacktrace(neighbor, node);
+	                }
+	                continue;
+	            }
+	            endOpenList.push(neighbor);
+	            neighbor.parent = node;
+	            neighbor.opened = true;
+	            neighbor.by = BY_END;
+	        }
+	    }
+
+	    // fail to find the path
+	    return [];
+	};
+
+	module.exports = BiBreadthFirstFinder;
+
+
+/***/ },
+/* 90 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var BiAStarFinder = __webpack_require__(87);
+
+	/**
+	 * Bi-directional Dijkstra path-finder.
+	 * @constructor
+	 * @extends BiAStarFinder
+	 * @param {Object} opt
+	 * @param {boolean} opt.allowDiagonal Whether diagonal movement is allowed.
+	 *     Deprecated, use diagonalMovement instead.
+	 * @param {boolean} opt.dontCrossCorners Disallow diagonal movement touching
+	 *     block corners. Deprecated, use diagonalMovement instead.
+	 * @param {DiagonalMovement} opt.diagonalMovement Allowed diagonal movement.
+	 */
+	function BiDijkstraFinder(opt) {
+	    BiAStarFinder.call(this, opt);
+	    this.heuristic = function(dx, dy) {
+	        return 0;
+	    };
+	}
+
+	BiDijkstraFinder.prototype = new BiAStarFinder();
+	BiDijkstraFinder.prototype.constructor = BiDijkstraFinder;
+
+	module.exports = BiDijkstraFinder;
+
+
+/***/ },
+/* 91 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var Util       = __webpack_require__(81);
+	var Heuristic  = __webpack_require__(82);
+	var Node       = __webpack_require__(78);
+	var DiagonalMovement = __webpack_require__(80);
+
+	/**
+	 * Iterative Deeping A Star (IDA*) path-finder.
+	 *
+	 * Recursion based on:
+	 *   http://www.apl.jhu.edu/~hall/AI-Programming/IDA-Star.html
+	 *
+	 * Path retracing based on:
+	 *  V. Nageshwara Rao, Vipin Kumar and K. Ramesh
+	 *  "A Parallel Implementation of Iterative-Deeping-A*", January 1987.
+	 *  ftp://ftp.cs.utexas.edu/.snapshot/hourly.1/pub/AI-Lab/tech-reports/UT-AI-TR-87-46.pdf
+	 *
+	 * @author Gerard Meier (www.gerardmeier.com)
+	 *
+	 * @constructor
+	 * @param {Object} opt
+	 * @param {boolean} opt.allowDiagonal Whether diagonal movement is allowed.
+	 *     Deprecated, use diagonalMovement instead.
+	 * @param {boolean} opt.dontCrossCorners Disallow diagonal movement touching
+	 *     block corners. Deprecated, use diagonalMovement instead.
+	 * @param {DiagonalMovement} opt.diagonalMovement Allowed diagonal movement.
+	 * @param {function} opt.heuristic Heuristic function to estimate the distance
+	 *     (defaults to manhattan).
+	 * @param {number} opt.weight Weight to apply to the heuristic to allow for
+	 *     suboptimal paths, in order to speed up the search.
+	 * @param {boolean} opt.trackRecursion Whether to track recursion for
+	 *     statistical purposes.
+	 * @param {number} opt.timeLimit Maximum execution time. Use <= 0 for infinite.
+	 */
+	function IDAStarFinder(opt) {
+	    opt = opt || {};
+	    this.allowDiagonal = opt.allowDiagonal;
+	    this.dontCrossCorners = opt.dontCrossCorners;
+	    this.diagonalMovement = opt.diagonalMovement;
+	    this.heuristic = opt.heuristic || Heuristic.manhattan;
+	    this.weight = opt.weight || 1;
+	    this.trackRecursion = opt.trackRecursion || false;
+	    this.timeLimit = opt.timeLimit || Infinity; // Default: no time limit.
+
+	    if (!this.diagonalMovement) {
+	        if (!this.allowDiagonal) {
+	            this.diagonalMovement = DiagonalMovement.Never;
+	        } else {
+	            if (this.dontCrossCorners) {
+	                this.diagonalMovement = DiagonalMovement.OnlyWhenNoObstacles;
+	            } else {
+	                this.diagonalMovement = DiagonalMovement.IfAtMostOneObstacle;
+	            }
+	        }
+	    }
+
+	    // When diagonal movement is allowed the manhattan heuristic is not
+	    // admissible, it should be octile instead
+	    if (this.diagonalMovement === DiagonalMovement.Never) {
+	        this.heuristic = opt.heuristic || Heuristic.manhattan;
+	    } else {
+	        this.heuristic = opt.heuristic || Heuristic.octile;
+	    }
+	}
+
+	/**
+	 * Find and return the the path. When an empty array is returned, either
+	 * no path is possible, or the maximum execution time is reached.
+	 *
+	 * @return {Array<Array<number>>} The path, including both start and
+	 *     end positions.
+	 */
+	IDAStarFinder.prototype.findPath = function(startX, startY, endX, endY, grid) {
+	    // Used for statistics:
+	    var nodesVisited = 0;
+
+	    // Execution time limitation:
+	    var startTime = new Date().getTime();
+
+	    // Heuristic helper:
+	    var h = function(a, b) {
+	        return this.heuristic(Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+	    }.bind(this);
+
+	    // Step cost from a to b:
+	    var cost = function(a, b) {
+	        return (a.x === b.x || a.y === b.y) ? 1 : Math.SQRT2;
+	    };
+
+	    /**
+	     * IDA* search implementation.
+	     *
+	     * @param {Node} The node currently expanding from.
+	     * @param {number} Cost to reach the given node.
+	     * @param {number} Maximum search depth (cut-off value).
+	     * @param {Array<Array<number>>} The found route.
+	     * @param {number} Recursion depth.
+	     *
+	     * @return {Object} either a number with the new optimal cut-off depth,
+	     * or a valid node instance, in which case a path was found.
+	     */
+	    var search = function(node, g, cutoff, route, depth) {
+	        nodesVisited++;
+
+	        // Enforce timelimit:
+	        if (this.timeLimit > 0 &&
+	            new Date().getTime() - startTime > this.timeLimit * 1000) {
+	            // Enforced as "path-not-found".
+	            return Infinity;
+	        }
+
+	        var f = g + h(node, end) * this.weight;
+
+	        // We've searched too deep for this iteration.
+	        if (f > cutoff) {
+	            return f;
+	        }
+
+	        if (node == end) {
+	            route[depth] = [node.x, node.y];
+	            return node;
+	        }
+
+	        var min, t, k, neighbour;
+
+	        var neighbours = grid.getNeighbors(node, this.diagonalMovement);
+
+	        // Sort the neighbours, gives nicer paths. But, this deviates
+	        // from the original algorithm - so I left it out.
+	        //neighbours.sort(function(a, b){
+	        //    return h(a, end) - h(b, end);
+	        //});
+
+	        
+	        /*jshint -W084 *///Disable warning: Expected a conditional expression and instead saw an assignment
+	        for (k = 0, min = Infinity; neighbour = neighbours[k]; ++k) {
+	        /*jshint +W084 *///Enable warning: Expected a conditional expression and instead saw an assignment
+	            if (this.trackRecursion) {
+	                // Retain a copy for visualisation. Due to recursion, this
+	                // node may be part of other paths too.
+	                neighbour.retainCount = neighbour.retainCount + 1 || 1;
+
+	                if(neighbour.tested !== true) {
+	                    neighbour.tested = true;
+	                }
+	            }
+
+	            t = search(neighbour, g + cost(node, neighbour), cutoff, route, depth + 1);
+
+	            if (t instanceof Node) {
+	                route[depth] = [node.x, node.y];
+
+	                // For a typical A* linked list, this would work:
+	                // neighbour.parent = node;
+	                return t;
+	            }
+
+	            // Decrement count, then determine whether it's actually closed.
+	            if (this.trackRecursion && (--neighbour.retainCount) === 0) {
+	                neighbour.tested = false;
+	            }
+
+	            if (t < min) {
+	                min = t;
+	            }
+	        }
+
+	        return min;
+
+	    }.bind(this);
+
+	    // Node instance lookups:
+	    var start = grid.getNodeAt(startX, startY);
+	    var end   = grid.getNodeAt(endX, endY);
+
+	    // Initial search depth, given the typical heuristic contraints,
+	    // there should be no cheaper route possible.
+	    var cutOff = h(start, end);
+
+	    var j, route, t;
+
+	    // With an overflow protection.
+	    for (j = 0; true; ++j) {
+
+	        route = [];
+
+	        // Search till cut-off depth:
+	        t = search(start, 0, cutOff, route, 0);
+
+	        // Route not possible, or not found in time limit.
+	        if (t === Infinity) {
+	            return [];
+	        }
+
+	        // If t is a node, it's also the end node. Route is now
+	        // populated with a valid path to the end node.
+	        if (t instanceof Node) {
+	            return route;
+	        }
+
+	        // Try again, this time with a deeper cut-off. The t score
+	        // is the closest we got to the end node.
+	        cutOff = t;
+	    }
+
+	    // This _should_ never to be reached.
+	    return [];
+	};
+
+	module.exports = IDAStarFinder;
+
+
+/***/ },
+/* 92 */
+/***/ function(module, exports, __webpack_require__) {
+
+	/**
+	 * @author aniero / https://github.com/aniero
+	 */
+	var DiagonalMovement = __webpack_require__(80);
+	var JPFNeverMoveDiagonally = __webpack_require__(93);
+	var JPFAlwaysMoveDiagonally = __webpack_require__(95);
+	var JPFMoveDiagonallyIfNoObstacles = __webpack_require__(96);
+	var JPFMoveDiagonallyIfAtMostOneObstacle = __webpack_require__(97);
+
+	/**
+	 * Path finder using the Jump Point Search algorithm
+	 * @param {Object} opt
+	 * @param {function} opt.heuristic Heuristic function to estimate the distance
+	 *     (defaults to manhattan).
+	 * @param {DiagonalMovement} opt.diagonalMovement Condition under which diagonal
+	 *      movement will be allowed.
+	 */
+	function JumpPointFinder(opt) {
+	    opt = opt || {};
+	    if (opt.diagonalMovement === DiagonalMovement.Never) {
+	        return new JPFNeverMoveDiagonally(opt);
+	    } else if (opt.diagonalMovement === DiagonalMovement.Always) {
+	        return new JPFAlwaysMoveDiagonally(opt);
+	    } else if (opt.diagonalMovement === DiagonalMovement.OnlyWhenNoObstacles) {
+	        return new JPFMoveDiagonallyIfNoObstacles(opt);
+	    } else {
+	        return new JPFMoveDiagonallyIfAtMostOneObstacle(opt);
+	    }
+	}
+
+	module.exports = JumpPointFinder;
+
+
+/***/ },
+/* 93 */
+/***/ function(module, exports, __webpack_require__) {
+
+	/**
+	 * @author imor / https://github.com/imor
+	 */
+	var JumpPointFinderBase = __webpack_require__(94);
+	var DiagonalMovement = __webpack_require__(80);
+
+	/**
+	 * Path finder using the Jump Point Search algorithm allowing only horizontal
+	 * or vertical movements.
+	 */
+	function JPFNeverMoveDiagonally(opt) {
+	    JumpPointFinderBase.call(this, opt);
+	}
+
+	JPFNeverMoveDiagonally.prototype = new JumpPointFinderBase();
+	JPFNeverMoveDiagonally.prototype.constructor = JPFNeverMoveDiagonally;
+
+	/**
+	 * Search recursively in the direction (parent -> child), stopping only when a
+	 * jump point is found.
+	 * @protected
+	 * @return {Array<Array<number>>} The x, y coordinate of the jump point
+	 *     found, or null if not found
+	 */
+	JPFNeverMoveDiagonally.prototype._jump = function(x, y, px, py) {
+	    var grid = this.grid,
+	        dx = x - px, dy = y - py;
+
+	    if (!grid.isWalkableAt(x, y)) {
+	        return null;
+	    }
+
+	    if(this.trackJumpRecursion === true) {
+	        grid.getNodeAt(x, y).tested = true;
+	    }
+
+	    if (grid.getNodeAt(x, y) === this.endNode) {
+	        return [x, y];
+	    }
+
+	    if (dx !== 0) {
+	        if ((grid.isWalkableAt(x, y - 1) && !grid.isWalkableAt(x - dx, y - 1)) ||
+	            (grid.isWalkableAt(x, y + 1) && !grid.isWalkableAt(x - dx, y + 1))) {
+	            return [x, y];
+	        }
+	    }
+	    else if (dy !== 0) {
+	        if ((grid.isWalkableAt(x - 1, y) && !grid.isWalkableAt(x - 1, y - dy)) ||
+	            (grid.isWalkableAt(x + 1, y) && !grid.isWalkableAt(x + 1, y - dy))) {
+	            return [x, y];
+	        }
+	        //When moving vertically, must check for horizontal jump points
+	        if (this._jump(x + 1, y, x, y) || this._jump(x - 1, y, x, y)) {
+	            return [x, y];
+	        }
+	    }
+	    else {
+	        throw new Error("Only horizontal and vertical movements are allowed");
+	    }
+
+	    return this._jump(x + dx, y + dy, x, y);
+	};
+
+	/**
+	 * Find the neighbors for the given node. If the node has a parent,
+	 * prune the neighbors based on the jump point search algorithm, otherwise
+	 * return all available neighbors.
+	 * @return {Array<Array<number>>} The neighbors found.
+	 */
+	JPFNeverMoveDiagonally.prototype._findNeighbors = function(node) {
+	    var parent = node.parent,
+	        x = node.x, y = node.y,
+	        grid = this.grid,
+	        px, py, nx, ny, dx, dy,
+	        neighbors = [], neighborNodes, neighborNode, i, l;
+
+	    // directed pruning: can ignore most neighbors, unless forced.
+	    if (parent) {
+	        px = parent.x;
+	        py = parent.y;
+	        // get the normalized direction of travel
+	        dx = (x - px) / Math.max(Math.abs(x - px), 1);
+	        dy = (y - py) / Math.max(Math.abs(y - py), 1);
+
+	        if (dx !== 0) {
+	            if (grid.isWalkableAt(x, y - 1)) {
+	                neighbors.push([x, y - 1]);
+	            }
+	            if (grid.isWalkableAt(x, y + 1)) {
+	                neighbors.push([x, y + 1]);
+	            }
+	            if (grid.isWalkableAt(x + dx, y)) {
+	                neighbors.push([x + dx, y]);
+	            }
+	        }
+	        else if (dy !== 0) {
+	            if (grid.isWalkableAt(x - 1, y)) {
+	                neighbors.push([x - 1, y]);
+	            }
+	            if (grid.isWalkableAt(x + 1, y)) {
+	                neighbors.push([x + 1, y]);
+	            }
+	            if (grid.isWalkableAt(x, y + dy)) {
+	                neighbors.push([x, y + dy]);
+	            }
+	        }
+	    }
+	    // return all neighbors
+	    else {
+	        neighborNodes = grid.getNeighbors(node, DiagonalMovement.Never);
+	        for (i = 0, l = neighborNodes.length; i < l; ++i) {
+	            neighborNode = neighborNodes[i];
+	            neighbors.push([neighborNode.x, neighborNode.y]);
+	        }
+	    }
+
+	    return neighbors;
+	};
+
+	module.exports = JPFNeverMoveDiagonally;
+
+
+/***/ },
+/* 94 */
+/***/ function(module, exports, __webpack_require__) {
+
+	/**
+	 * @author imor / https://github.com/imor
+	 */
+	var Heap       = __webpack_require__(75);
+	var Util       = __webpack_require__(81);
+	var Heuristic  = __webpack_require__(82);
+	var DiagonalMovement = __webpack_require__(80);
+
+	/**
+	 * Base class for the Jump Point Search algorithm
+	 * @param {object} opt
+	 * @param {function} opt.heuristic Heuristic function to estimate the distance
+	 *     (defaults to manhattan).
+	 */
+	function JumpPointFinderBase(opt) {
+	    opt = opt || {};
+	    this.heuristic = opt.heuristic || Heuristic.manhattan;
+	    this.trackJumpRecursion = opt.trackJumpRecursion || false;
+	}
+
+	/**
+	 * Find and return the path.
+	 * @return {Array<Array<number>>} The path, including both start and
+	 *     end positions.
+	 */
+	JumpPointFinderBase.prototype.findPath = function(startX, startY, endX, endY, grid) {
+	    var openList = this.openList = new Heap(function(nodeA, nodeB) {
+	            return nodeA.f - nodeB.f;
+	        }),
+	        startNode = this.startNode = grid.getNodeAt(startX, startY),
+	        endNode = this.endNode = grid.getNodeAt(endX, endY), node;
+
+	    this.grid = grid;
+
+
+	    // set the `g` and `f` value of the start node to be 0
+	    startNode.g = 0;
+	    startNode.f = 0;
+
+	    // push the start node into the open list
+	    openList.push(startNode);
+	    startNode.opened = true;
+
+	    // while the open list is not empty
+	    while (!openList.empty()) {
+	        // pop the position of node which has the minimum `f` value.
+	        node = openList.pop();
+	        node.closed = true;
+
+	        if (node === endNode) {
+	            return Util.expandPath(Util.backtrace(endNode));
+	        }
+
+	        this._identifySuccessors(node);
+	    }
+
+	    // fail to find the path
+	    return [];
+	};
+
+	/**
+	 * Identify successors for the given node. Runs a jump point search in the
+	 * direction of each available neighbor, adding any points found to the open
+	 * list.
+	 * @protected
+	 */
+	JumpPointFinderBase.prototype._identifySuccessors = function(node) {
+	    var grid = this.grid,
+	        heuristic = this.heuristic,
+	        openList = this.openList,
+	        endX = this.endNode.x,
+	        endY = this.endNode.y,
+	        neighbors, neighbor,
+	        jumpPoint, i, l,
+	        x = node.x, y = node.y,
+	        jx, jy, dx, dy, d, ng, jumpNode,
+	        abs = Math.abs, max = Math.max;
+
+	    neighbors = this._findNeighbors(node);
+	    for(i = 0, l = neighbors.length; i < l; ++i) {
+	        neighbor = neighbors[i];
+	        jumpPoint = this._jump(neighbor[0], neighbor[1], x, y);
+	        if (jumpPoint) {
+
+	            jx = jumpPoint[0];
+	            jy = jumpPoint[1];
+	            jumpNode = grid.getNodeAt(jx, jy);
+
+	            if (jumpNode.closed) {
+	                continue;
+	            }
+
+	            // include distance, as parent may not be immediately adjacent:
+	            d = Heuristic.octile(abs(jx - x), abs(jy - y));
+	            ng = node.g + d; // next `g` value
+
+	            if (!jumpNode.opened || ng < jumpNode.g) {
+	                jumpNode.g = ng;
+	                jumpNode.h = jumpNode.h || heuristic(abs(jx - endX), abs(jy - endY));
+	                jumpNode.f = jumpNode.g + jumpNode.h;
+	                jumpNode.parent = node;
+
+	                if (!jumpNode.opened) {
+	                    openList.push(jumpNode);
+	                    jumpNode.opened = true;
+	                } else {
+	                    openList.updateItem(jumpNode);
+	                }
+	            }
+	        }
+	    }
+	};
+
+	module.exports = JumpPointFinderBase;
+
+
+/***/ },
+/* 95 */
+/***/ function(module, exports, __webpack_require__) {
+
+	/**
+	 * @author imor / https://github.com/imor
+	 */
+	var JumpPointFinderBase = __webpack_require__(94);
+	var DiagonalMovement = __webpack_require__(80);
+
+	/**
+	 * Path finder using the Jump Point Search algorithm which always moves
+	 * diagonally irrespective of the number of obstacles.
+	 */
+	function JPFAlwaysMoveDiagonally(opt) {
+	    JumpPointFinderBase.call(this, opt);
+	}
+
+	JPFAlwaysMoveDiagonally.prototype = new JumpPointFinderBase();
+	JPFAlwaysMoveDiagonally.prototype.constructor = JPFAlwaysMoveDiagonally;
+
+	/**
+	 * Search recursively in the direction (parent -> child), stopping only when a
+	 * jump point is found.
+	 * @protected
+	 * @return {Array<Array<number>>} The x, y coordinate of the jump point
+	 *     found, or null if not found
+	 */
+	JPFAlwaysMoveDiagonally.prototype._jump = function(x, y, px, py) {
+	    var grid = this.grid,
+	        dx = x - px, dy = y - py;
+
+	    if (!grid.isWalkableAt(x, y)) {
+	        return null;
+	    }
+
+	    if(this.trackJumpRecursion === true) {
+	        grid.getNodeAt(x, y).tested = true;
+	    }
+
+	    if (grid.getNodeAt(x, y) === this.endNode) {
+	        return [x, y];
+	    }
+
+	    // check for forced neighbors
+	    // along the diagonal
+	    if (dx !== 0 && dy !== 0) {
+	        if ((grid.isWalkableAt(x - dx, y + dy) && !grid.isWalkableAt(x - dx, y)) ||
+	            (grid.isWalkableAt(x + dx, y - dy) && !grid.isWalkableAt(x, y - dy))) {
+	            return [x, y];
+	        }
+	        // when moving diagonally, must check for vertical/horizontal jump points
+	        if (this._jump(x + dx, y, x, y) || this._jump(x, y + dy, x, y)) {
+	            return [x, y];
+	        }
+	    }
+	    // horizontally/vertically
+	    else {
+	        if( dx !== 0 ) { // moving along x
+	            if((grid.isWalkableAt(x + dx, y + 1) && !grid.isWalkableAt(x, y + 1)) ||
+	               (grid.isWalkableAt(x + dx, y - 1) && !grid.isWalkableAt(x, y - 1))) {
+	                return [x, y];
+	            }
+	        }
+	        else {
+	            if((grid.isWalkableAt(x + 1, y + dy) && !grid.isWalkableAt(x + 1, y)) ||
+	               (grid.isWalkableAt(x - 1, y + dy) && !grid.isWalkableAt(x - 1, y))) {
+	                return [x, y];
+	            }
+	        }
+	    }
+
+	    return this._jump(x + dx, y + dy, x, y);
+	};
+
+	/**
+	 * Find the neighbors for the given node. If the node has a parent,
+	 * prune the neighbors based on the jump point search algorithm, otherwise
+	 * return all available neighbors.
+	 * @return {Array<Array<number>>} The neighbors found.
+	 */
+	JPFAlwaysMoveDiagonally.prototype._findNeighbors = function(node) {
+	    var parent = node.parent,
+	        x = node.x, y = node.y,
+	        grid = this.grid,
+	        px, py, nx, ny, dx, dy,
+	        neighbors = [], neighborNodes, neighborNode, i, l;
+
+	    // directed pruning: can ignore most neighbors, unless forced.
+	    if (parent) {
+	        px = parent.x;
+	        py = parent.y;
+	        // get the normalized direction of travel
+	        dx = (x - px) / Math.max(Math.abs(x - px), 1);
+	        dy = (y - py) / Math.max(Math.abs(y - py), 1);
+
+	        // search diagonally
+	        if (dx !== 0 && dy !== 0) {
+	            if (grid.isWalkableAt(x, y + dy)) {
+	                neighbors.push([x, y + dy]);
+	            }
+	            if (grid.isWalkableAt(x + dx, y)) {
+	                neighbors.push([x + dx, y]);
+	            }
+	            if (grid.isWalkableAt(x + dx, y + dy)) {
+	                neighbors.push([x + dx, y + dy]);
+	            }
+	            if (!grid.isWalkableAt(x - dx, y)) {
+	                neighbors.push([x - dx, y + dy]);
+	            }
+	            if (!grid.isWalkableAt(x, y - dy)) {
+	                neighbors.push([x + dx, y - dy]);
+	            }
+	        }
+	        // search horizontally/vertically
+	        else {
+	            if(dx === 0) {
+	                if (grid.isWalkableAt(x, y + dy)) {
+	                    neighbors.push([x, y + dy]);
+	                }
+	                if (!grid.isWalkableAt(x + 1, y)) {
+	                    neighbors.push([x + 1, y + dy]);
+	                }
+	                if (!grid.isWalkableAt(x - 1, y)) {
+	                    neighbors.push([x - 1, y + dy]);
+	                }
+	            }
+	            else {
+	                if (grid.isWalkableAt(x + dx, y)) {
+	                    neighbors.push([x + dx, y]);
+	                }
+	                if (!grid.isWalkableAt(x, y + 1)) {
+	                    neighbors.push([x + dx, y + 1]);
+	                }
+	                if (!grid.isWalkableAt(x, y - 1)) {
+	                    neighbors.push([x + dx, y - 1]);
+	                }
+	            }
+	        }
+	    }
+	    // return all neighbors
+	    else {
+	        neighborNodes = grid.getNeighbors(node, DiagonalMovement.Always);
+	        for (i = 0, l = neighborNodes.length; i < l; ++i) {
+	            neighborNode = neighborNodes[i];
+	            neighbors.push([neighborNode.x, neighborNode.y]);
+	        }
+	    }
+
+	    return neighbors;
+	};
+
+	module.exports = JPFAlwaysMoveDiagonally;
+
+
+/***/ },
+/* 96 */
+/***/ function(module, exports, __webpack_require__) {
+
+	/**
+	 * @author imor / https://github.com/imor
+	 */
+	var JumpPointFinderBase = __webpack_require__(94);
+	var DiagonalMovement = __webpack_require__(80);
+
+	/**
+	 * Path finder using the Jump Point Search algorithm which moves
+	 * diagonally only when there are no obstacles.
+	 */
+	function JPFMoveDiagonallyIfNoObstacles(opt) {
+	    JumpPointFinderBase.call(this, opt);
+	}
+
+	JPFMoveDiagonallyIfNoObstacles.prototype = new JumpPointFinderBase();
+	JPFMoveDiagonallyIfNoObstacles.prototype.constructor = JPFMoveDiagonallyIfNoObstacles;
+
+	/**
+	 * Search recursively in the direction (parent -> child), stopping only when a
+	 * jump point is found.
+	 * @protected
+	 * @return {Array<Array<number>>} The x, y coordinate of the jump point
+	 *     found, or null if not found
+	 */
+	JPFMoveDiagonallyIfNoObstacles.prototype._jump = function(x, y, px, py) {
+	    var grid = this.grid,
+	        dx = x - px, dy = y - py;
+
+	    if (!grid.isWalkableAt(x, y)) {
+	        return null;
+	    }
+
+	    if(this.trackJumpRecursion === true) {
+	        grid.getNodeAt(x, y).tested = true;
+	    }
+
+	    if (grid.getNodeAt(x, y) === this.endNode) {
+	        return [x, y];
+	    }
+
+	    // check for forced neighbors
+	    // along the diagonal
+	    if (dx !== 0 && dy !== 0) {
+	        // if ((grid.isWalkableAt(x - dx, y + dy) && !grid.isWalkableAt(x - dx, y)) ||
+	            // (grid.isWalkableAt(x + dx, y - dy) && !grid.isWalkableAt(x, y - dy))) {
+	            // return [x, y];
+	        // }
+	        // when moving diagonally, must check for vertical/horizontal jump points
+	        if (this._jump(x + dx, y, x, y) || this._jump(x, y + dy, x, y)) {
+	            return [x, y];
+	        }
+	    }
+	    // horizontally/vertically
+	    else {
+	        if (dx !== 0) {
+	            if ((grid.isWalkableAt(x, y - 1) && !grid.isWalkableAt(x - dx, y - 1)) ||
+	                (grid.isWalkableAt(x, y + 1) && !grid.isWalkableAt(x - dx, y + 1))) {
+	                return [x, y];
+	            }
+	        }
+	        else if (dy !== 0) {
+	            if ((grid.isWalkableAt(x - 1, y) && !grid.isWalkableAt(x - 1, y - dy)) ||
+	                (grid.isWalkableAt(x + 1, y) && !grid.isWalkableAt(x + 1, y - dy))) {
+	                return [x, y];
+	            }
+	            // When moving vertically, must check for horizontal jump points
+	            // if (this._jump(x + 1, y, x, y) || this._jump(x - 1, y, x, y)) {
+	                // return [x, y];
+	            // }
+	        }
+	    }
+
+	    // moving diagonally, must make sure one of the vertical/horizontal
+	    // neighbors is open to allow the path
+	    if (grid.isWalkableAt(x + dx, y) && grid.isWalkableAt(x, y + dy)) {
+	        return this._jump(x + dx, y + dy, x, y);
+	    } else {
+	        return null;
+	    }
+	};
+
+	/**
+	 * Find the neighbors for the given node. If the node has a parent,
+	 * prune the neighbors based on the jump point search algorithm, otherwise
+	 * return all available neighbors.
+	 * @return {Array<Array<number>>} The neighbors found.
+	 */
+	JPFMoveDiagonallyIfNoObstacles.prototype._findNeighbors = function(node) {
+	    var parent = node.parent,
+	        x = node.x, y = node.y,
+	        grid = this.grid,
+	        px, py, nx, ny, dx, dy,
+	        neighbors = [], neighborNodes, neighborNode, i, l;
+
+	    // directed pruning: can ignore most neighbors, unless forced.
+	    if (parent) {
+	        px = parent.x;
+	        py = parent.y;
+	        // get the normalized direction of travel
+	        dx = (x - px) / Math.max(Math.abs(x - px), 1);
+	        dy = (y - py) / Math.max(Math.abs(y - py), 1);
+
+	        // search diagonally
+	        if (dx !== 0 && dy !== 0) {
+	            if (grid.isWalkableAt(x, y + dy)) {
+	                neighbors.push([x, y + dy]);
+	            }
+	            if (grid.isWalkableAt(x + dx, y)) {
+	                neighbors.push([x + dx, y]);
+	            }
+	            if (grid.isWalkableAt(x, y + dy) && grid.isWalkableAt(x + dx, y)) {
+	                neighbors.push([x + dx, y + dy]);
+	            }
+	        }
+	        // search horizontally/vertically
+	        else {
+	            var isNextWalkable;
+	            if (dx !== 0) {
+	                isNextWalkable = grid.isWalkableAt(x + dx, y);
+	                var isTopWalkable = grid.isWalkableAt(x, y + 1);
+	                var isBottomWalkable = grid.isWalkableAt(x, y - 1);
+
+	                if (isNextWalkable) {
+	                    neighbors.push([x + dx, y]);
+	                    if (isTopWalkable) {
+	                        neighbors.push([x + dx, y + 1]);
+	                    }
+	                    if (isBottomWalkable) {
+	                        neighbors.push([x + dx, y - 1]);
+	                    }
+	                }
+	                if (isTopWalkable) {
+	                    neighbors.push([x, y + 1]);
+	                }
+	                if (isBottomWalkable) {
+	                    neighbors.push([x, y - 1]);
+	                }
+	            }
+	            else if (dy !== 0) {
+	                isNextWalkable = grid.isWalkableAt(x, y + dy);
+	                var isRightWalkable = grid.isWalkableAt(x + 1, y);
+	                var isLeftWalkable = grid.isWalkableAt(x - 1, y);
+
+	                if (isNextWalkable) {
+	                    neighbors.push([x, y + dy]);
+	                    if (isRightWalkable) {
+	                        neighbors.push([x + 1, y + dy]);
+	                    }
+	                    if (isLeftWalkable) {
+	                        neighbors.push([x - 1, y + dy]);
+	                    }
+	                }
+	                if (isRightWalkable) {
+	                    neighbors.push([x + 1, y]);
+	                }
+	                if (isLeftWalkable) {
+	                    neighbors.push([x - 1, y]);
+	                }
+	            }
+	        }
+	    }
+	    // return all neighbors
+	    else {
+	        neighborNodes = grid.getNeighbors(node, DiagonalMovement.OnlyWhenNoObstacles);
+	        for (i = 0, l = neighborNodes.length; i < l; ++i) {
+	            neighborNode = neighborNodes[i];
+	            neighbors.push([neighborNode.x, neighborNode.y]);
+	        }
+	    }
+
+	    return neighbors;
+	};
+
+	module.exports = JPFMoveDiagonallyIfNoObstacles;
+
+
+/***/ },
+/* 97 */
+/***/ function(module, exports, __webpack_require__) {
+
+	/**
+	 * @author imor / https://github.com/imor
+	 */
+	var JumpPointFinderBase = __webpack_require__(94);
+	var DiagonalMovement = __webpack_require__(80);
+
+	/**
+	 * Path finder using the Jump Point Search algorithm which moves
+	 * diagonally only when there is at most one obstacle.
+	 */
+	function JPFMoveDiagonallyIfAtMostOneObstacle(opt) {
+	    JumpPointFinderBase.call(this, opt);
+	}
+
+	JPFMoveDiagonallyIfAtMostOneObstacle.prototype = new JumpPointFinderBase();
+	JPFMoveDiagonallyIfAtMostOneObstacle.prototype.constructor = JPFMoveDiagonallyIfAtMostOneObstacle;
+
+	/**
+	 * Search recursively in the direction (parent -> child), stopping only when a
+	 * jump point is found.
+	 * @protected
+	 * @return {Array<Array<number>>} The x, y coordinate of the jump point
+	 *     found, or null if not found
+	 */
+	JPFMoveDiagonallyIfAtMostOneObstacle.prototype._jump = function(x, y, px, py) {
+	    var grid = this.grid,
+	        dx = x - px, dy = y - py;
+
+	    if (!grid.isWalkableAt(x, y)) {
+	        return null;
+	    }
+
+	    if(this.trackJumpRecursion === true) {
+	        grid.getNodeAt(x, y).tested = true;
+	    }
+
+	    if (grid.getNodeAt(x, y) === this.endNode) {
+	        return [x, y];
+	    }
+
+	    // check for forced neighbors
+	    // along the diagonal
+	    if (dx !== 0 && dy !== 0) {
+	        if ((grid.isWalkableAt(x - dx, y + dy) && !grid.isWalkableAt(x - dx, y)) ||
+	            (grid.isWalkableAt(x + dx, y - dy) && !grid.isWalkableAt(x, y - dy))) {
+	            return [x, y];
+	        }
+	        // when moving diagonally, must check for vertical/horizontal jump points
+	        if (this._jump(x + dx, y, x, y) || this._jump(x, y + dy, x, y)) {
+	            return [x, y];
+	        }
+	    }
+	    // horizontally/vertically
+	    else {
+	        if( dx !== 0 ) { // moving along x
+	            if((grid.isWalkableAt(x + dx, y + 1) && !grid.isWalkableAt(x, y + 1)) ||
+	               (grid.isWalkableAt(x + dx, y - 1) && !grid.isWalkableAt(x, y - 1))) {
+	                return [x, y];
+	            }
+	        }
+	        else {
+	            if((grid.isWalkableAt(x + 1, y + dy) && !grid.isWalkableAt(x + 1, y)) ||
+	               (grid.isWalkableAt(x - 1, y + dy) && !grid.isWalkableAt(x - 1, y))) {
+	                return [x, y];
+	            }
+	        }
+	    }
+
+	    // moving diagonally, must make sure one of the vertical/horizontal
+	    // neighbors is open to allow the path
+	    if (grid.isWalkableAt(x + dx, y) || grid.isWalkableAt(x, y + dy)) {
+	        return this._jump(x + dx, y + dy, x, y);
+	    } else {
+	        return null;
+	    }
+	};
+
+	/**
+	 * Find the neighbors for the given node. If the node has a parent,
+	 * prune the neighbors based on the jump point search algorithm, otherwise
+	 * return all available neighbors.
+	 * @return {Array<Array<number>>} The neighbors found.
+	 */
+	JPFMoveDiagonallyIfAtMostOneObstacle.prototype._findNeighbors = function(node) {
+	    var parent = node.parent,
+	        x = node.x, y = node.y,
+	        grid = this.grid,
+	        px, py, nx, ny, dx, dy,
+	        neighbors = [], neighborNodes, neighborNode, i, l;
+
+	    // directed pruning: can ignore most neighbors, unless forced.
+	    if (parent) {
+	        px = parent.x;
+	        py = parent.y;
+	        // get the normalized direction of travel
+	        dx = (x - px) / Math.max(Math.abs(x - px), 1);
+	        dy = (y - py) / Math.max(Math.abs(y - py), 1);
+
+	        // search diagonally
+	        if (dx !== 0 && dy !== 0) {
+	            if (grid.isWalkableAt(x, y + dy)) {
+	                neighbors.push([x, y + dy]);
+	            }
+	            if (grid.isWalkableAt(x + dx, y)) {
+	                neighbors.push([x + dx, y]);
+	            }
+	            if (grid.isWalkableAt(x, y + dy) || grid.isWalkableAt(x + dx, y)) {
+	                neighbors.push([x + dx, y + dy]);
+	            }
+	            if (!grid.isWalkableAt(x - dx, y) && grid.isWalkableAt(x, y + dy)) {
+	                neighbors.push([x - dx, y + dy]);
+	            }
+	            if (!grid.isWalkableAt(x, y - dy) && grid.isWalkableAt(x + dx, y)) {
+	                neighbors.push([x + dx, y - dy]);
+	            }
+	        }
+	        // search horizontally/vertically
+	        else {
+	            if(dx === 0) {
+	                if (grid.isWalkableAt(x, y + dy)) {
+	                    neighbors.push([x, y + dy]);
+	                    if (!grid.isWalkableAt(x + 1, y)) {
+	                        neighbors.push([x + 1, y + dy]);
+	                    }
+	                    if (!grid.isWalkableAt(x - 1, y)) {
+	                        neighbors.push([x - 1, y + dy]);
+	                    }
+	                }
+	            }
+	            else {
+	                if (grid.isWalkableAt(x + dx, y)) {
+	                    neighbors.push([x + dx, y]);
+	                    if (!grid.isWalkableAt(x, y + 1)) {
+	                        neighbors.push([x + dx, y + 1]);
+	                    }
+	                    if (!grid.isWalkableAt(x, y - 1)) {
+	                        neighbors.push([x + dx, y - 1]);
+	                    }
+	                }
+	            }
+	        }
+	    }
+	    // return all neighbors
+	    else {
+	        neighborNodes = grid.getNeighbors(node, DiagonalMovement.IfAtMostOneObstacle);
+	        for (i = 0, l = neighborNodes.length; i < l; ++i) {
+	            neighborNode = neighborNodes[i];
+	            neighbors.push([neighborNode.x, neighborNode.y]);
+	        }
+	    }
+
+	    return neighbors;
+	};
+
+	module.exports = JPFMoveDiagonallyIfAtMostOneObstacle;
+
+
+/***/ },
+/* 98 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -109562,7 +112547,7 @@
 	exports.default = [[2, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 5, 0, 0, 0], [0, 0, 0, 0, 0, 3, 0], [0, 0, 4, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0]];
 
 /***/ },
-/* 74 */
+/* 99 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -109573,7 +112558,7 @@
 	exports.default = [[0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 4, 0, 0, 0, 1, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1], [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0, 1], [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1], [1, 0, 0, 1, 0, 5, 0, 0, 0, 5, 0, 0, 0, 5, 0, 0, 0, 1, 0, 0, 1], [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1], [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0], [0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0], [0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]];
 
 /***/ },
-/* 75 */
+/* 100 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -109581,10 +112566,10 @@
 	Object.defineProperty(exports, "__esModule", {
 	    value: true
 	});
-	exports.default = [[0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1], [0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0], [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0], [0, 0, 1, 3, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0], [2, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0], [1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0], [0, 4, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], [1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0]];
+	exports.default = [[0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1], [0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0], [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0], [0, 0, 1, 3, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0], [2, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0], [1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0], [0, 4, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], [1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0], [0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0]];
 
 /***/ },
-/* 76 */
+/* 101 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -109592,10 +112577,10 @@
 	Object.defineProperty(exports, "__esModule", {
 	    value: true
 	});
-	exports.default = [[0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], [0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 3, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1], [0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 4, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]];
+	exports.default = [[0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], [0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 3, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1], [0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 4, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 6, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]];
 
 /***/ },
-/* 77 */
+/* 102 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -109611,10 +112596,12 @@
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 	var Splash = function () {
-	    function Splash(game) {
+	    function Splash(game, savedGame, loadGame) {
 	        _classCallCheck(this, Splash);
 
 	        this.game = game;
+	        this.savedGame = savedGame;
+	        this.loadGame = loadGame;
 	    }
 
 	    _createClass(Splash, [{
@@ -109623,8 +112610,9 @@
 	            var game = this.game;
 
 	            game.load.spritesheet('santa', 'img/santa_256.png', 64, 64);
-	            game.load.image('gift', 'img/Christmas-gift.gif', 400, 302);
-	            game.load.image('block-ice-plain', 'img/ice-block-1.png', 88, 55);
+	            game.load.image('gift', 'img/gift.png', 40, 30);
+	            game.load.image('block-ice-plain', 'img/ice-block-45.png', 45, 45);
+	            game.load.image('block-ice-small', 'img/ice-block-small.png', 32, 32);
 	            game.load.image('tree', 'img/tree.png', 1988, 1870);
 	            game.load.atlas('wintery', 'img/sprites_raw_transparent.png', 'config/sprite-atlas.json', Phaser.Loader.TEXTURE_ATLAS_JSON_HASH);
 	            game.load.atlas('footprints', 'img/footprints.png', 'config/sprite-atlas-footprints.json', Phaser.Loader.TEXTURE_ATLAS_JSON_HASH);
@@ -109636,12 +112624,17 @@
 	            game.load.image('nw', 'img/controls/NW.png');
 	            game.load.image('se', 'img/controls/SE.png');
 	            game.load.image('sw', 'img/controls/SW.png');
+	            game.load.image('crater', 'img/crater_64.png', 128, 69);
 	            game.load.image('scroll', 'img/paper-scroll.png');
 	            game.load.spritesheet('deer', 'img/deer.png', 344, 307);
+
+	            game.load.spritesheet('snowman', 'img/snowman-6.png', 360, 315);
 	            game.load.image('splash', 'img/splash.png', 2880, 1080);
 	            game.load.spritesheet('glitter', 'img/glitter.png', 1, 1);
 	            game.load.audio('carol', ['audio/bells_carol.mp3', 'audio/bells_carol.ogg']);
 	            game.load.audio('watermelon', ['audio/watermelon-smash.mp3', 'audio/watermelon-smash.ogg']);
+	            game.load.audio('sharp-big', ['audio/big-object-falling.mp3', 'audio/big-object-falling.ogg']);
+
 	            game.load.audio('footsteps', ['audio/steps.mp3', 'audio/steps.ogg']);
 	        }
 	    }, {
@@ -109759,9 +112752,11 @@
 	    }, {
 	        key: 'create',
 	        value: function create() {
+	            var _this3 = this;
+
 	            var game = this.game;
 
-	            var music = game.add.audio('carol');
+	            var music = game.gameMusic = game.add.audio('carol');
 	            // we start from 0:03
 	            // we go to 1:23
 	            music.addMarker('start', 4, 80, 1, true);
@@ -109884,7 +112879,7 @@
 	            text.stroke = '#FFFFFF';
 	            text.strokeThickness = 20;
 
-	            var startText = game.add.text(game.world.centerX, 900, 'Start');
+	            var startText = game.add.text(game.world.centerX, 700, 'Start');
 	            startText.anchor.setTo(0.5);
 	            startText.font = 'Fontdiner Swanky';
 	            startText.fontSize = 70;
@@ -109898,13 +112893,13 @@
 
 	            var startUp = function startUp() {
 	                var bounce = game.add.tween(startText);
-	                bounce.to({ y: 880, fontSize: 80 }, 400, Phaser.Easing.Exponential.In);
+	                bounce.to({ y: 780, fontSize: 80 }, 400, Phaser.Easing.Exponential.In);
 	                bounce.onComplete.add(startDown);
 	                bounce.start();
 	            };
 	            var startDown = function startDown() {
 	                var bounce = game.add.tween(startText);
-	                bounce.to({ y: 900, fontSize: 70 }, 500, Phaser.Easing.Exponential.Out);
+	                bounce.to({ y: 800, fontSize: 70 }, 500, Phaser.Easing.Exponential.Out);
 	                bounce.onComplete.add(startUp);
 	                bounce.start();
 	            };
@@ -109916,7 +112911,46 @@
 	                game.scale.startFullScreen(false);
 	                (0, _utils.preventSleep)();
 	                game.state.start('story');
+	                //game.state.start('maze-level-3'); 
 	            });
+
+	            if (this.savedGame) {
+	                (function () {
+	                    var continueText = game.add.text(game.world.centerX, 1000, 'Continue');
+	                    continueText.anchor.setTo(0.5);
+	                    continueText.font = 'Fontdiner Swanky';
+	                    continueText.fontSize = 70;
+	                    continueText.align = 'center';
+	                    continueText.stroke = '#FFFFFF';
+	                    continueText.strokeThickness = 10;
+	                    var startGradient1 = text.context.createLinearGradient(0, 0, 0, 90);
+	                    startGradient.addColorStop(0, 'rgb(229, 133, 142)');
+	                    startGradient.addColorStop(1, 'rgb(224, 13, 34)');
+	                    continueText.fill = startGradient;
+
+	                    var startUp1 = function startUp1() {
+	                        var bounce = game.add.tween(continueText);
+	                        bounce.to({ y: 920, fontSize: 80 }, 400, Phaser.Easing.Exponential.In);
+	                        bounce.onComplete.add(startDown1);
+	                        bounce.start();
+	                    };
+	                    var startDown1 = function startDown1() {
+	                        var bounce = game.add.tween(continueText);
+	                        bounce.to({ y: 940, fontSize: 70 }, 500, Phaser.Easing.Exponential.Out);
+	                        bounce.onComplete.add(startUp1);
+	                        bounce.start();
+	                    };
+	                    startUp1();
+
+	                    continueText.inputEnabled = true;
+	                    continueText.events.onInputDown.add(function () {
+	                        game.scale.fullScreenScaleMode = Phaser.ScaleManager.EXACT_FIT;
+	                        game.scale.startFullScreen(false);
+	                        (0, _utils.preventSleep)();
+	                        _this3.loadGame();
+	                    });
+	                })();
+	            }
 	        }
 	    }, {
 	        key: 'update',
@@ -109944,7 +112978,7 @@
 	exports.default = Splash;
 
 /***/ },
-/* 78 */
+/* 103 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -109955,7 +112989,7 @@
 
 	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-	var _ga = __webpack_require__(79);
+	var _ga = __webpack_require__(104);
 
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -110155,7 +113189,7 @@
 	            var game = this.game;
 
 	            if (!this.shownStory) {
-	                var storyText = 'Oh no! \n\n Santa has fallen out of his sleigh! \n\n He\'s stuck in the deep labyrinth of Newfoundland. \n\n Please help to save Christmas by finding all the Gifts and escaping from the foggy depths of Newfoundland!';
+	                var storyText = 'Oh no! \n Santa has fallen out of his sleigh! \n He\'s stuck in the deep labyrinth of Newfoundland and Grumpy old Frosty is on the loose!. \n Please help to save Christmas by finding all the Gifts and escaping from the foggy depths of Newfoundland!';
 	                this.shownStory = true;
 	                var img = game.cache.getImage('scroll');
 	                var scroll = game.add.sprite(game.world.centerX - img.width / 2, game.world.centerY - img.height / 2, 'scroll');
@@ -110181,7 +113215,7 @@
 	exports.default = Story;
 
 /***/ },
-/* 79 */
+/* 104 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -110248,7 +113282,7 @@
 	};
 
 /***/ },
-/* 80 */
+/* 105 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -110295,7 +113329,7 @@
 	;
 
 /***/ },
-/* 81 */
+/* 106 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -110305,7 +113339,7 @@
 	});
 	exports.random = undefined;
 
-	var _jquery = __webpack_require__(82);
+	var _jquery = __webpack_require__(107);
 
 	var _jquery2 = _interopRequireDefault(_jquery);
 
@@ -110367,8 +113401,10 @@
 
 	    var playerStart = (0, _lodash2.default)(0, 3);
 	    var goalStart = (0, _lodash2.default)(0, 3);
-	    while (goalStart === playerStart) {
+	    var snowmanStart = (0, _lodash2.default)(0, 3);
+	    while (goalStart === playerStart || snowmanStart === playerStart || snowmanStart === goalStart) {
 	        goalStart = (0, _lodash2.default)(0, 3);
+	        snowmanStart = (0, _lodash2.default)(0, 3);
 	    };
 
 	    // TOP LEFT
@@ -110391,8 +113427,21 @@
 	        case 3:
 	            result[result.length - 2][result[1].length - 2] = 4;
 	            break;
-	        default:
-	            throw new Error('fuck ' + goalStart);
+	    }
+
+	    switch (snowmanStart) {
+	        case 0:
+	            result[1][1] = 6;
+	            break;
+	        case 1:
+	            result[1][result[1].length - 2] = 6;
+	            break;
+	        case 2:
+	            result[result.length - 2][1] = 6;
+	            break;
+	        case 3:
+	            result[result.length - 2][result[1].length - 2] = 6;
+	            break;
 	    }
 
 	    switch (playerStart) {
@@ -110495,7 +113544,7 @@
 	}
 
 /***/ },
-/* 82 */
+/* 107 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!

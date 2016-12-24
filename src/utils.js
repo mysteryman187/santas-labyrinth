@@ -41,3 +41,13 @@ export function stopPreventSleep(){
 	console.log('pause');
 	video.pause();
 }
+
+var counts = [4, 9, 15, 6, 2],
+  goal = 5;
+
+var closest = counts.reduce(function (prev, curr) {
+  return (Math.abs(curr - goal) < Math.abs(prev - goal) ? curr : prev);
+});
+
+
+export const nearest = (goal, array) => array.reduce( (prev, curr) => Math.abs(curr - goal) < Math.abs(prev - goal) ? curr : prev );

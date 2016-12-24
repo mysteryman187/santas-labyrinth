@@ -51,8 +51,10 @@ export const random = (width, height) => {
 
     let playerStart = _random(0, 3);
     let goalStart = _random(0, 3);
-    while (goalStart === playerStart) {
+    let snowmanStart = _random(0, 3);
+    while (goalStart === playerStart || snowmanStart === playerStart || snowmanStart === goalStart) {
         goalStart = _random(0, 3);
+        snowmanStart = _random(0, 3);
     };
 
     // TOP LEFT
@@ -75,10 +77,23 @@ export const random = (width, height) => {
         case 3:
             result[result.length - 2][result[1].length - 2] = 4;
             break;
-        default:
-            throw new Error('fuck ' + goalStart);
     }
 
+    switch (snowmanStart) {
+        case 0:
+            result[1][1] = 6;
+            break;
+        case 1:
+            result[1][result[1].length - 2] = 6;
+            break;
+        case 2:
+            result[result.length - 2][1] = 6;
+            break;
+        case 3:
+            result[result.length - 2][result[1].length - 2] = 6;
+            break;
+    }
+    
     switch (playerStart) {
         case 0:
             result[1][1] = 2;

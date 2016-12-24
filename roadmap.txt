@@ -1,3 +1,9 @@
+how to boost perf.....
+????
+clean up audio leftover...sure im pausing it(footprints)
+
+
+
 1. fix the slowness!.....fixed for now..ongoing battle looks like with this setup....fixed again by removed the floor...means i needed shaddows/footprints/random litttle tufts about
 2. ditch the gyro for transparent arows you need to touch.--------.done
 4. more maze..more table -------------------------infinite table!
@@ -25,6 +31,21 @@
 5.  touch loading to fullscreen it ---
 add the video to prevent sleep thingy------------done
 6. evil snowman!
+
+craters
+music bug/restarting on level change
+
+snowman sound effects-------done
+dieing sound effects (goron?) swirly brady bros music?
+restart the carol when died--- ----theres was a bug here with multiple playeing same time so cleanup a must!
+shake relative to how close the dude is-----done
+sounnd volume relative to how close the dude is----done
+
+level counter in top left...its fucking text dude take about 5 minutes..the var is even there!..done
+............localstorage to persist a previous level -=done
+...so if you played before then you ahve a contnue optin on the splash---done
+
+bad guy stuck on level 2!!!!!!---fixed
 -----------------------finish line
 7. add signs ...touch to read
 8. a 360 touchpad from the plugin...wwould give u give iso benefit
@@ -32,6 +53,8 @@ add the video to prevent sleep thingy------------done
 6. get away fron google fontd if manifest issue wont go away!
 8. when footprints collide one is destroy()
 9. add a yoshi easter eggy which keep disappearing out the corner of the screen
+
+
 
 
 
