@@ -1,0 +1,40 @@
+{
+    "frames": [
+        {
+            "filename": "footprints-ne",
+            "frame": {
+                "x": 2,
+                "y": 2,
+                "w": 32,
+                "h": 22
+            }
+        },
+        {
+            "filename": "footprints-nw",
+            "frame": {
+                "x": 46,
+                "y": 1,
+                "w": 32,
+                "h": 22
+            }
+        },
+        {
+            "filename": "footprints-sw",
+            "frame": {
+                "x": 49,
+                "y": 39,
+                "w": 32,
+                "h": 22
+            }
+        },
+        {
+            "filename": "footprints-se",
+            "frame": {
+                "x": 1,
+                "y": 41,
+                "w": 32,
+                "h": 22
+            }
+        }
+    ]
+}

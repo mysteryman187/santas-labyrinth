@@ -1,0 +1,49 @@
+{
+    "frames": [
+        {
+            "filename": "tile-ice-plain",
+            "frame": {
+                "x": 1110,
+                "y": 449,
+                "w": 88,
+                "h": 55
+            }
+        },
+        {
+            "filename": "tile-ice-grass",
+            "frame": {
+                "x": 1194,
+                "y": 405,
+                "w": 88,
+                "h": 55
+            }
+        },
+        {
+            "filename": "tile-ice-cracked",
+            "frame": {
+                "x": 1251,
+                "y": 457,
+                "w": 88,
+                "h": 55
+            }
+        },
+        {
+            "filename": "block-ice-plain",
+            "frame": {
+                "x": 1204,
+                "y": 526,
+                "w": 93,
+                "h": 92
+            }
+        },
+        {
+            "filename": "igloo",
+            "frame": {
+                "x": 1075,
+                "y": 526,
+                "w": 120,
+                "h": 88
+            }
+        }
+    ]
+}

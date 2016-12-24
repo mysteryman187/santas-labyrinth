@@ -1,0 +1,40 @@
+{
+    "frames": [
+        {
+            "filename": "grass-1",
+            "frame": {
+                "x": 2,
+                "y": 17,
+                "w": 58,
+                "h": 53
+            }
+        },
+        {
+            "filename": "grass-2",
+            "frame": {
+                "x": 64,
+                "y": 3,
+                "w": 59,
+                "h": 68
+            }
+        },
+        {
+            "filename": "grass-3",
+            "frame": {
+                "x": 12,
+                "y": 109,
+                "w": 44,
+                "h": 46
+            }
+        },
+        {
+            "filename": "grass-4",
+            "frame": {
+                "x": 77,
+                "y": 95,
+                "w": 45,
+                "h": 53
+            }
+        }
+    ]
+}

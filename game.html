@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en" manifest="manifest.appcache">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Santa's Labyrinth</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="MobileOptimized" content="320">
+    <meta http-equiv="cleartype" content="on">
+
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+    <style type="text/css">
+        #maze {
+            border-collapse: collapse;
+        }
+        
+        #maze td {
+            width: 20px;
+            height: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="content"></div>
+    <table id="maze">
+        <tbody></tbody>
+    </table>
+    <script src="bundle.js"></script>
+</body>
+
+</html>

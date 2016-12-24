@@ -1,0 +1,115 @@
+1. fix the slowness!.....fixed for now..ongoing battle looks like with this setup....fixed again by removed the floor...means i needed shaddows/footprints/random litttle tufts about
+2. ditch the gyro for transparent arows you need to touch.--------.done
+4. more maze..more table -------------------------infinite table!
+5. installable and offline modes.............sorta done
+7. footprints------------done
+8. music..............done
+9. fix the broken snow...its just in the wrong place.............done---its still fucked dude!....done
+10. get it hosted............done
+11. grab the gift to get to next level...................done
+12. splash/menu...puts it fulscreen when click on start......done
+13. high scores entry on finish/high scores table
+15. shadows ............done
+16. random little plants n tuffts.......done
+17. a text printing to explain wtf is goin on in the game to add more story/deptch------------done
+17. footprints................done
+18 add a chrsitmas tree for level 3=========done
+15. fix the snow by measeure the size of the grid...work out exactly where is the corner and make the widths match
+16. snow on the splash screen------------wontfix
+
+
+1. thwomp noise when santa lands-------done
+2 footstep noises----done
+3. analytics - per level------------done
+4.  actually load things in the preload for loading splash-------done
+5.  touch loading to fullscreen it ---
+add the video to prevent sleep thingy------------done
+6. evil snowman!
+-----------------------finish line
+7. add signs ...touch to read
+8. a 360 touchpad from the plugin...wwould give u give iso benefit
+-----------------bonus line
+6. get away fron google fontd if manifest issue wont go away!
+8. when footprints collide one is destroy()
+9. add a yoshi easter eggy which keep disappearing out the corner of the screen
+
+
+
+--------------UAT]feedback
+
+its still boring and needs morre player engagement
+
+so we need to have a story of sorts
+
+so sant falls out of the sliegh when you click on start
+and he falls in the maze
+and there is a popuip text then to explain "oh noes santa fell into the labyrinth, can you help him"
+also signs feture might help
+...we can pass 2 text params into the game for showing popup at start and end
+
+nothing happens when you finish....yep text is about it
+
+there shouold be some bad guys
+so sant gets zelda style hearts
+he glows red flashy when hit
+
+there is an evil snowman who is randomly placed in the maze
+he jjust patrols up and down a given area
+
+Featgure...evil snowman!
+and when the player is close he will follow...slower than the player
+he jumps along ..each jump shakes the screen when he lands + makes a thwomp noise
+... the closer the player is to the snowman ..the more screen shake on each land(shold not shake when nowhere near me/ should be a clue when near, but not visible)
+...he can only hit you when he is jumping at yhou
+..if yougo next to him he would jusst sort jump up and down and on the dow you ghets hit
+... if you run out of hearts the level will restard
+...for the ransdom levels..the snowman wil be placed in a corner without playrr or gift
+
+-----------------------------------------------------/UAT feedback
+
+
+performance stuff i could do...
+make the sprites way smaller i.e the size they end up on the 1080 phone
+avoid the atlas and also make those smaller when you extract them
+less sprites:
+- combine tiles into 4s?
+- combine them into 1 big ass thing...
+- or maybe just 9s?
+- use TileSprite..not sure will work with iso though
+
+
+
+
+
+// how to add gyro to phone...but it doesnt relly work i dont think..code works...just annoying concept!
+// maybe better if it were a rolling moneyball style marble thing!...but code only really providing diections(axises)
+if (this.gyro) {
+            const { gyro } = this;
+            if (gyro.beta > threshold || gyro.beta < -threshold || gyro.gamma > threshold || gyro.gamma < -threshold) {
+                const { gamma, beta } = gyro;
+                if (gamma < 0 && beta > 0) {
+                    // go right
+                    faceRight();
+                    player.animations.play('walk');
+                    player.body.velocity.x = velocity;
+                } else if (gamma < 0 && beta < 0) {
+                    // go down
+                    faceLeft();
+                    player.animations.play('walk');
+                    player.body.velocity.y = velocity;
+                } else if (gamma > 0 && beta > 0) {
+                    // go up
+                    faceRight();
+                    player.animations.play('walk');
+                    player.body.velocity.y = -velocity;
+                } else if (gamma > 0 && beta < 0) {
+                    // go left
+                    faceLeft();
+                    player.animations.play('walk');
+                    player.body.velocity.x = -velocity;
+                }
+            } else {
+                player.animations.play('stand');
+                // stand still
+            }
+        }

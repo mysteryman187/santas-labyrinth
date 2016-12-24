@@ -1,0 +1,40 @@
+{
+    "frames": [
+        {
+            "filename": "key-left",
+            "frame": {
+                "x": 24,
+                "y": 102,
+                "w": 73,
+                "h": 73
+            }
+        },
+        {
+            "filename": "key-up",
+            "frame": {
+                "x": 108,
+                "y": 22,
+                "w": 73,
+                "h": 73
+            }
+        },
+        {
+            "filename": "key-right",
+            "frame": {
+                "x": 192,
+                "y": 102,
+                "w": 73,
+                "h": 73
+            }
+        },
+        {
+            "filename": "key-down",
+            "frame": {
+                "x": 108,
+                "y": 102,
+                "w": 73,
+                "h": 73
+            }
+        }
+    ]
+}
