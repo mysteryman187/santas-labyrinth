@@ -64,7 +64,7 @@ const loadLevel = map => {
 
 const nextLevel = () => {
   finishLevelMetric(levels);
-  const map = random(15, 15);
+  const map = random(11, 11);
   levels++;
   localStorage.savedGame = JSON.stringify({ level: levels, map });
   loadLevel(map);
@@ -95,5 +95,7 @@ game.state.add('maze-level-3', new maze(game, wrapMap(level3), nextLevel, 0.17, 
 game.state.add('loading', new Loading(game));
 game.state.add('story', new Story(game));
 game.state.add('splash', new Splash(game, savedGame, loadGame));
+//game.state.add('splash', new Splash(game, true, nextLevel));
+
 game.state.start('loading');
 metric('start');

@@ -153,7 +153,7 @@
 
 	var nextLevel = function nextLevel() {
 	  (0, _ga.finishLevel)(levels);
-	  var map = (0, _generate.random)(15, 15);
+	  var map = (0, _generate.random)(11, 11);
 	  levels++;
 	  localStorage.savedGame = JSON.stringify({ level: levels, map: map });
 	  loadLevel(map);
@@ -184,6 +184,8 @@
 	game.state.add('loading', new _loading2.default(game));
 	game.state.add('story', new _story2.default(game));
 	game.state.add('splash', new _splash2.default(game, savedGame, loadGame));
+	//game.state.add('splash', new Splash(game, true, nextLevel));
+
 	game.state.start('loading');
 	(0, _ga.send)('start');
 
@@ -108211,32 +108213,32 @@
 	            // populate edges as approaching and cull ones
 	            // not in camera
 	            // this is not worth the frame rate drop!
-	            // map.forEach((row, indexY) => {
-	            //     row.concat(row).forEach((item, indexX) => {
-	            //         const x = (indexX * (TILE_WIDTH));
-	            //         const y = (indexY * (TILE_WIDTH));
-	            //         const tileType = game.rnd.integerInRange(0, 200);
-	            //         const tilesTypeMap = {
-	            //             0: 'grass-1',
-	            //             1: 'grass-2',
-	            //             2: 'grass-3',
-	            //             3: 'grass-4'
-	            //         };
-	            //         if (tilesTypeMap[tileType]) {
-	            //             const grass = game.add.isoSprite(x, y, 0, 'grass', tilesTypeMap[tileType], grassGroup);
-	            //             grass.scale.setTo(0.4, 0.4);
-	            //             grass.anchor.set(0.5, 0.5);
-	            //             const shadow = game.add.isoSprite(x, y - 1, 0, 'grass', tilesTypeMap[tileType], grassShadowGroup);
-	            //             game.physics.isoArcade.enable(shadow);
-	            //             shadow.tint = 0x000000;
-	            //             shadow.alpha = 0.6;
-	            //             shadow.scale.setTo(0.3, 0.3);
-	            //             shadow.anchor.set(0.5, 1);
-	            //             shadow.body.immovable = true;
-	            //             shadow.body.collideWorldBounds = true;
-	            //         }
-	            //     });
-	            // });
+	            map.forEach(function (row, indexY) {
+	                row.concat(row).forEach(function (item, indexX) {
+	                    var x = indexX * TILE_WIDTH;
+	                    var y = indexY * TILE_WIDTH;
+	                    var tileType = game.rnd.integerInRange(0, 50);
+	                    var tilesTypeMap = {
+	                        0: 'grass-1',
+	                        1: 'grass-2',
+	                        2: 'grass-3',
+	                        3: 'grass-4'
+	                    };
+	                    if (tilesTypeMap[tileType]) {
+	                        var grass = game.add.isoSprite(x, y, 0, 'grass', tilesTypeMap[tileType], grassGroup);
+	                        grass.anchor.set(0.5, 0.5);
+	                        grass.scale.setTo(0.5, 0.5);
+	                        var shadow = game.add.isoSprite(x - 5, y - 4, 0, 'grass', tilesTypeMap[tileType], grassShadowGroup);
+	                        game.physics.isoArcade.enable(shadow);
+	                        shadow.tint = 0x000000;
+	                        shadow.alpha = 0.6;
+	                        shadow.scale.setTo(0.4, 0.4);
+	                        shadow.anchor.set(0.5, 1);
+	                        shadow.body.immovable = true;
+	                        shadow.body.collideWorldBounds = true;
+	                    }
+	                });
+	            });
 
 	            map.forEach(function (row, indexY) {
 	                row.forEach(function (item, indexX) {

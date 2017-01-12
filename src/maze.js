@@ -178,32 +178,32 @@ export default class Maze {
         // populate edges as approaching and cull ones
         // not in camera
         // this is not worth the frame rate drop!
-        // map.forEach((row, indexY) => {
-        //     row.concat(row).forEach((item, indexX) => {
-        //         const x = (indexX * (TILE_WIDTH));
-        //         const y = (indexY * (TILE_WIDTH));
-        //         const tileType = game.rnd.integerInRange(0, 200);
-        //         const tilesTypeMap = {
-        //             0: 'grass-1',
-        //             1: 'grass-2',
-        //             2: 'grass-3',
-        //             3: 'grass-4'
-        //         };
-        //         if (tilesTypeMap[tileType]) {
-        //             const grass = game.add.isoSprite(x, y, 0, 'grass', tilesTypeMap[tileType], grassGroup);
-        //             grass.scale.setTo(0.4, 0.4);
-        //             grass.anchor.set(0.5, 0.5);
-        //             const shadow = game.add.isoSprite(x, y - 1, 0, 'grass', tilesTypeMap[tileType], grassShadowGroup);
-        //             game.physics.isoArcade.enable(shadow);
-        //             shadow.tint = 0x000000;
-        //             shadow.alpha = 0.6;
-        //             shadow.scale.setTo(0.3, 0.3);
-        //             shadow.anchor.set(0.5, 1);
-        //             shadow.body.immovable = true;
-        //             shadow.body.collideWorldBounds = true;
-        //         }
-        //     });
-        // });
+        map.forEach((row, indexY) => {
+            row.concat(row).forEach((item, indexX) => {
+                const x = (indexX * (TILE_WIDTH));
+                const y = (indexY * (TILE_WIDTH));
+                const tileType = game.rnd.integerInRange(0, 50);
+                const tilesTypeMap = {
+                    0: 'grass-1',
+                    1: 'grass-2',
+                    2: 'grass-3',
+                    3: 'grass-4'
+                };
+                if (tilesTypeMap[tileType]) {
+                    const grass = game.add.isoSprite(x, y, 0, 'grass', tilesTypeMap[tileType], grassGroup);
+                    grass.anchor.set(0.5, 0.5);
+                    grass.scale.setTo(0.5, 0.5);
+                    const shadow = game.add.isoSprite(x - 5, y - 4, 0, 'grass', tilesTypeMap[tileType], grassShadowGroup);
+                    game.physics.isoArcade.enable(shadow);
+                    shadow.tint = 0x000000;
+                    shadow.alpha = 0.6;
+                    shadow.scale.setTo(0.4, 0.4);
+                    shadow.anchor.set(0.5, 1);
+                    shadow.body.immovable = true;
+                    shadow.body.collideWorldBounds = true;
+                }
+            });
+        });
 
         map.forEach((row, indexY) => {
             row.forEach((item, indexX) => {
